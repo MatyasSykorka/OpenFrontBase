@@ -1,0 +1,17 @@
+# .NET / C#
+bin/
+obj/
+out/
+*.user
+*.suo
+
+# Arduino / ESP32
+build/
+*.bin
+*.elf
+*.map
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.zed/
