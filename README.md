@@ -7,8 +7,8 @@
 ## Struktura projektu / Project Structure
 - `firmware/` – ESP32-S3 Arduino C++ firmware & LVGL 8.4.0 UI
 - `pc-client/` – Multiplatformní C# (.NET 8) služba na pozadí / Cross-platform background agent
-- `ui/` – Projekt pro EEZ Studio / EEZ Studio project
-- `hardware/` – 3D modely šasi (2x 5.25" bay) a schémata / 3D enclosure models and schematics
+- `ui-design/` – Projekt pro EEZ Studio / EEZ Studio project
+- `STL/` – 3D modely šasi (2x 5.25" bay) a schémata / 3D enclosure models and schematics
 - `docs/` – Dokumentace a specifikace protokolu / Documentation and protocol spec
 
 ## Licence / License

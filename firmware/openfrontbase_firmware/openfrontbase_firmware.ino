@@ -9,18 +9,14 @@
 #include "src/ui/screens.h"
 #include "src/ui/actions.h"
 
-// Piny I2C sběrnice na desce Waveshare ESP32-S3-Touch-LCD-4.3
-#define I2C_MASTER_NUM      0
-#define I2C_MASTER_SDA_IO   8
-#define I2C_MASTER_SCL_IO   9
+using namespace esp_panel::board;
 
-// Piny expandéru CH422G
+// Piny expandéru CH422G na desce Waveshare ESP32-S3-Touch-LCD-4.3
 #define TP_RST              1
 #define LCD_BL              2
 #define LCD_RST             3
 
-ESP_IOExpander *expander = nullptr;
-ESP_Panel *panel = nullptr;
+Board *board = nullptr;
 String serialRxBuffer = "";
 unsigned long lastStatTimeMs = 0;
 bool isBacklightOn = true;
@@ -60,32 +56,67 @@ struct TelemetryState {
     int netUlKbps = 0;
 } telemetry;
 
+// Waveshare ESP32-S3-Touch-LCD-4.3 má USB-C vyvedený přes čip CH343 na UART0 (Serial0).
+// Pokud je v Arduino IDE zapnuto "USB CDC On Boot: Enabled", objekt 'Serial' míří na interní USB CDC.
+// Proto definujeme BoardSerial tak, aby vždy komunikoval přes CH343 (UART0) a zároveň obsluhoval i Serial.
+#if ARDUINO_USB_CDC_ON_BOOT
+#define BoardSerial Serial0
+#else
+#define BoardSerial Serial
+#endif
+
 // Dopředné deklarace funkcí
 void processSerialLine(const String &line);
 void updateUiWidgets();
 void setBacklight(bool enable);
+void setChildLabelText(lv_obj_t *parent, uint32_t index, const char *text);
 
 void setup() {
+    BoardSerial.begin(115200);
+#if ARDUINO_USB_CDC_ON_BOOT
     Serial.begin(115200);
-    delay(1000);
-    Serial.println("1: start");
+#endif
+    serialRxBuffer.reserve(1024);
+    delay(500);
 
-    panel = new ESP_Panel();
-    panel->init();
-    panel->begin();
-    Serial.println("2: panel OK");
+    // 1. Inicializace desky Waveshare (RGB displej, dotyk GT911 a expandér CH422G)
+    board = new Board();
+    board->init();
+    board->begin();
 
-    lvgl_port_init(panel->getLcd(), panel->getTouch());
-    Serial.println("3: lvgl OK");
+    // 2. Spuštění LVGL tasku
+    lvgl_port_init(board->getLCD(), board->getTouch());
 
+    // 3. Vykreslení UI z EEZ Studia
     if (lvgl_port_lock(-1)) {
         ui_init();
         lvgl_port_unlock();
     }
-    Serial.println("4: ui OK");
 }
 
 void loop() {
+    // Příjem z UART0 (převodník CH343 na desce)
+    while (BoardSerial.available() > 0) {
+        char c = (char)BoardSerial.read();
+        if (c == '\n') {
+            serialRxBuffer.trim();
+            if (serialRxBuffer.startsWith("{")) {
+                processSerialLine(serialRxBuffer);
+            }
+            serialRxBuffer = "";
+        }
+        else if (c != '\r') {
+            if (serialRxBuffer.length() < 1020) {
+                serialRxBuffer += c;
+            }
+            else {
+                serialRxBuffer = "";
+            }
+        }
+    }
+
+#if ARDUINO_USB_CDC_ON_BOOT
+    // Příjem z nativního USB CDC (pokud je využito)
     while (Serial.available() > 0) {
         char c = (char)Serial.read();
         if (c == '\n') {
@@ -104,7 +135,9 @@ void loop() {
             }
         }
     }
+#endif
 
+    // Zhasnutí podsvícení po 15 sekundách bez dat z PC
     if (lastStatTimeMs > 0 && (millis() - lastStatTimeMs > 15000) && isBacklightOn) {
         setBacklight(false);
     }
@@ -132,7 +165,10 @@ void processSerialLine(const String &line) {
 
         String out;
         serializeJson(ack, out);
+        BoardSerial.println(out);
+#if ARDUINO_USB_CDC_ON_BOOT
         Serial.println(out);
+#endif
 
         if (!isBacklightOn) {
             setBacklight(true);
@@ -145,6 +181,12 @@ void processSerialLine(const String &line) {
         telemetry.ramTotalGb = doc["ram_total_gb"] | 0;
         telemetry.diskName = doc["disk_name"] | "System Disk";
         telemetry.diskTotalGb = doc["disk_total_gb"] | 0;
+
+        // Automatické přepnutí na obrazovku All po přijetí specifikací z PC
+        if (lvgl_port_lock(-1)) {
+            loadScreen(SCREEN_ID_ALL);
+            lvgl_port_unlock();
+        }
 
         updateUiWidgets();
     }
@@ -190,15 +232,92 @@ void processSerialLine(const String &line) {
 }
 
 void setBacklight(bool enable) {
-    if (expander != nullptr) {
-        expander->digitalWrite(LCD_BL, enable ? HIGH : LOW);
+    if (board != nullptr && board->getBacklight() != nullptr) {
+        if (enable) {
+            board->getBacklight()->on();
+        }
+        else {
+            board->getBacklight()->off();
+        }
         isBacklightOn = enable;
+    }
+}
+
+void setChildLabelText(lv_obj_t *parent, uint32_t index, const char *text) {
+    lv_obj_t *child = lv_obj_get_child(parent, index);
+    if (child != nullptr) {
+        lv_label_set_text(child, text);
     }
 }
 
 void updateUiWidgets() {
     if (lvgl_port_lock(-1)) {
-        // Zde budeme postupně mapovat hodnoty do labelů, jakmile jim v EEZ Studiu nastavíme ID
+        if (objects.all != nullptr) {
+            char buf[32];
+
+            // --- CPU (indexy 6 až 10) ---
+            snprintf(buf, sizeof(buf), "%d RPM", telemetry.cpuFanRpm);
+            setChildLabelText(objects.all, 6, buf);
+
+            snprintf(buf, sizeof(buf), "%d C", telemetry.cpuTemp);
+            setChildLabelText(objects.all, 7, buf);
+
+            snprintf(buf, sizeof(buf), "%d MHz", telemetry.cpuFreq);
+            setChildLabelText(objects.all, 8, buf);
+
+            snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
+            setChildLabelText(objects.all, 9, buf);
+
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.cpuLoad);
+            setChildLabelText(objects.all, 10, buf);
+
+            // --- RAM (indexy 14 a 15) ---
+            snprintf(buf, sizeof(buf), "%d MB (%d %%)", telemetry.ramUsedMb, telemetry.ramLoad);
+            setChildLabelText(objects.all, 14, buf);
+
+            snprintf(buf, sizeof(buf), "%d GB", telemetry.ramTotalGb);
+            setChildLabelText(objects.all, 15, buf);
+
+            // --- GPU (indexy 22 až 26, VRAM 28 a 30) ---
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuFanPct);
+            setChildLabelText(objects.all, 22, buf);
+
+            snprintf(buf, sizeof(buf), "%d C", telemetry.gpuTemp);
+            setChildLabelText(objects.all, 23, buf);
+
+            snprintf(buf, sizeof(buf), "%d MHz", telemetry.gpuFreq);
+            setChildLabelText(objects.all, 24, buf);
+
+            snprintf(buf, sizeof(buf), "%d W", telemetry.gpuPowerW);
+            setChildLabelText(objects.all, 25, buf);
+
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuLoad);
+            setChildLabelText(objects.all, 26, buf);
+
+            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramTotalMb);
+            setChildLabelText(objects.all, 28, buf);
+
+            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramUsedMb);
+            setChildLabelText(objects.all, 30, buf);
+
+            // --- ROM / Disk (indexy 34, 35 a 37) ---
+            snprintf(buf, sizeof(buf), "%d GB (%d %%)", telemetry.diskUsedGb, telemetry.diskUsedPct);
+            setChildLabelText(objects.all, 34, buf);
+
+            snprintf(buf, sizeof(buf), "%d GB", telemetry.diskTotalGb);
+            setChildLabelText(objects.all, 35, buf);
+
+            snprintf(buf, sizeof(buf), "%d C", telemetry.diskTemp);
+            setChildLabelText(objects.all, 37, buf);
+
+            // --- NET (indexy 41 a 42) ---
+            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netUlKbps);
+            setChildLabelText(objects.all, 41, buf);
+
+            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netDlKbps);
+            setChildLabelText(objects.all, 42, buf);
+        }
+
         lvgl_port_unlock();
     }
 }

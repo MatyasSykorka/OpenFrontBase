@@ -104,21 +104,18 @@ void create_screen_all() {
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
-            objects.lbl_cpu_fan = obj;
             lv_obj_set_pos(obj, 108, 98);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_label_set_text_static(obj, "Text-cpufan");
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
-            objects.lbl_cpu_celsius = obj;
             lv_obj_set_pos(obj, 108, 140);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_label_set_text_static(obj, "Text-celsia");
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
-            objects.lbl_cpu_clock = obj;
             lv_obj_set_pos(obj, 108, 183);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_label_set_text_static(obj, "Text-clock");

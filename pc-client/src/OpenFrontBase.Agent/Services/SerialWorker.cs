@@ -54,6 +54,8 @@ public class SerialWorker : BackgroundService {
         ClosePortSafely();
     }
 
+    private bool _firstTelemetrySent;
+
     private void ConnectToBoard() {
         string? configuredPort = _config["Serial:Port"];
         int baudRate = _config.GetValue<int>("Serial:BaudRate", 115200);
@@ -72,11 +74,14 @@ public class SerialWorker : BackgroundService {
             NewLine = "\n",
             ReadTimeout = 500,
             WriteTimeout = 500,
-            DtrEnable = false,
-            RtsEnable = false
+            DtrEnable = true,
+            RtsEnable = true
         };
 
         _serialPort.Open();
+
+        // ESP32-S3 USB CDC vyžaduje krátkou prodlevu po otevření portu pro ustavení spojení
+        Thread.Sleep(500);
 
         // 1. Odešleme Handshake (hello)
         var hello = new HelloMessage {
@@ -84,6 +89,8 @@ public class SerialWorker : BackgroundService {
             Timestamp = DateTimeOffset.Now.ToUnixTimeSeconds()
         };
         SendJsonLine(hello);
+
+        Thread.Sleep(100);
 
         // 2. Odešleme statické specifikace PC
         var specs = _hardwareReader.GetStaticSpecs();
@@ -95,6 +102,12 @@ public class SerialWorker : BackgroundService {
     private void SendTelemetryTick() {
         var msg = _hardwareReader.GetCurrentTelemetry();
         SendJsonLine(msg);
+
+        if (!_firstTelemetrySent) {
+            _firstTelemetrySent = true;
+            _logger.LogInformation("Telemetrie aktivní / Telemetry active: CPU={CpuTemp}°C ({CpuLoad}%), GPU={GpuTemp}°C ({GpuLoad}%), RAM={RamUsed} MB",
+                msg.Cpu.Temp, msg.Cpu.Load, msg.Gpu.Temp, msg.Gpu.Load, msg.Ram.UsedMb);
+        }
     }
 
     private void PrintSimulatedTelemetry() {
@@ -123,6 +136,11 @@ public class SerialWorker : BackgroundService {
                 string line = _serialPort.ReadLine().Trim();
                 if (line.StartsWith('{')) {
                     _logger.LogInformation("[RX z ESP32] {Line}", line);
+                    if (line.Contains("\"hello_ack\"")) {
+                        // Když deska potvrdí hello, pro jistotu znovu pošleme specs
+                        var specs = _hardwareReader.GetStaticSpecs();
+                        SendJsonLine(specs);
+                    }
                 }
             }
             catch (TimeoutException) {

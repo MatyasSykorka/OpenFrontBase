@@ -33,27 +33,6 @@ typedef struct _objects_t {
     lv_obj_t *ram;
     lv_obj_t *rom;
     lv_obj_t *agent_status;
-
-    // Labely na obrazovce All
-    lv_obj_t *lbl_cpu_fan;
-    lv_obj_t *lbl_cpu_celsius;
-    lv_obj_t *lbl_cpu_clock;
-    lv_obj_t *lbl_cpu_power;
-    lv_obj_t *lbl_cpu_load;
-    lv_obj_t *lbl_ram_used;
-    lv_obj_t *lbl_ram_total;
-    lv_obj_t *lbl_gpu_fan;
-    lv_obj_t *lbl_gpu_celsius;
-    lv_obj_t *lbl_gpu_clock;
-    lv_obj_t *lbl_gpu_power;
-    lv_obj_t *lbl_gpu_load;
-    lv_obj_t *lbl_vram;
-    lv_obj_t *lbl_vram_used;
-    lv_obj_t *lbl_rom_used;
-    lv_obj_t *lbl_rom_total;
-    lv_obj_t *lbl_rom_celsius;
-    lv_obj_t *lbl_upl;
-    lv_obj_t *lbl_down;
 } objects_t;
 
 extern objects_t objects;

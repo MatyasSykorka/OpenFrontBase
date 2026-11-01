@@ -44,8 +44,12 @@ public static class SerialPortDiscovery {
                     continue;
                 }
 
-                DirectoryInfo? currentDir = new DirectoryInfo(deviceSymlink);
-                for (int i = 0; i < 4 && currentDir != null; i++) {
+                // Nejprve převedeme symlink "/sys/class/tty/ttyACM0/device" na reálnou cestu v "/sys/devices/..."
+                FileSystemInfo? resolved = Directory.ResolveLinkTarget(deviceSymlink, returnFinalTarget: true);
+                DirectoryInfo? currentDir = resolved as DirectoryInfo ?? new DirectoryInfo(deviceSymlink);
+
+                // Procházíme nadřazené složky USB stromu, dokud nenajdeme idVendor a idProduct
+                for (int i = 0; i < 5 && currentDir != null; i++) {
                     string vidFile = Path.Combine(currentDir.FullName, "idVendor");
                     string pidFile = Path.Combine(currentDir.FullName, "idProduct");
 
@@ -58,14 +62,17 @@ public static class SerialPortDiscovery {
                         }
                     }
 
-                    string realPath = File.ResolveLinkTarget(currentDir.FullName, returnFinalTarget: true)?.FullName
-                                      ?? currentDir.FullName;
-                    currentDir = Directory.GetParent(realPath);
+                    currentDir = currentDir.Parent;
                 }
             }
             catch {
                 // Ignorujeme chyby čtení u nepřístupných systémových uzlů
             }
+        }
+
+        // Fallback: pokud existuje /dev/ttyACM0, vrátíme ho přímo
+        if (File.Exists("/dev/ttyACM0")) {
+            return "/dev/ttyACM0";
         }
 
         return null;
