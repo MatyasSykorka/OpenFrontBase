@@ -1,6 +1,6 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/0",
+    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/1",
     "selectedActionObject": "[OpenFrontbase.eez-project]:/actions/0",
     "subnavigationSelectedItems": {}
   },
@@ -187,29 +187,16 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 58.78208119458703,
-              "selected": 1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
                 {
                   "type": "tab",
-                  "id": "#6215a209-0e2d-4f39-8210-b3b603c9facb",
-                  "name": "Settings",
-                  "component": "editor",
-                  "config": {
-                    "objectPath": "[OpenFrontbase.eez-project]:/settings",
-                    "subObjectPath": "[OpenFrontbase.eez-project]:/settings",
-                    "permanent": false
-                  },
-                  "icon": "material:settings"
-                },
-                {
-                  "type": "tab",
                   "id": "#c8f6fed3-a198-427e-bcff-a1e38bc54541",
-                  "name": "Main",
+                  "name": "All",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/0",
+                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/1",
                     "permanent": false
                   },
                   "icon": "svg:page"
@@ -1095,8 +1082,8 @@
       },
       "transform": {
         "translate": {
-          "x": -537.0999999999997,
-          "y": -410.29999999999995
+          "x": -545.0999999999997,
+          "y": -364.29999999999995
         },
         "scale": 1.5
       },
