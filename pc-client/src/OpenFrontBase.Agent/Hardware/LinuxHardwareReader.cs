@@ -22,7 +22,7 @@ public class LinuxHardwareReader : IHardwareReader {
     private DateTime _prevNetTime = DateTime.UtcNow;
 
     private readonly string? _cpuTempFile;
-    private readonly string? _cpuFanFile;
+    private string? _cpuFanFile;
     private readonly string? _cpuEnergyFile;
     private readonly string? _diskTempFile;
     private readonly SpecsMessage _cachedSpecs;
@@ -44,6 +44,10 @@ public class LinuxHardwareReader : IHardwareReader {
     }
 
     public StatMessage GetCurrentTelemetry() {
+        if (_cpuFanFile == null || !File.Exists(_cpuFanFile)) {
+            _cpuFanFile = FindCpuFanFile();
+        }
+
         var now = DateTime.Now;
         var cpu = new CpuStats {
             Load = ReadCpuLoad(),
@@ -119,8 +123,35 @@ public class LinuxHardwareReader : IHardwareReader {
             RamName = ReadLinuxRamName(totalRamGb),
             RamTotalGb = totalRamGb,
             DiskName = diskName,
-            DiskTotalGb = diskTotalGb
+            DiskTotalGb = diskTotalGb,
+            NetName = DetectNetworkAdapterName()
         };
+    }
+
+    private static string DetectNetworkAdapterName() {
+        try {
+            string netDir = "/sys/class/net";
+            if (Directory.Exists(netDir)) {
+                foreach (string iface in Directory.GetDirectories(netDir)) {
+                    string name = Path.GetFileName(iface);
+                    if (name.StartsWith("en") || name.StartsWith("eth")) {
+                        return $"Ethernet ({name})";
+                    }
+                    if (name.StartsWith("wl")) {
+                        return $"Wi-Fi ({name})";
+                    }
+                }
+
+                foreach (string iface in Directory.GetDirectories(netDir)) {
+                    string name = Path.GetFileName(iface);
+                    if (name != "lo" && !name.StartsWith("br-") && !name.StartsWith("docker") && !name.StartsWith("veth")) {
+                        return name;
+                    }
+                }
+            }
+        }
+        catch { }
+        return "Network";
     }
 
     private static (string Name, int TotalGb) DetectSystemDiskIdentity() {
@@ -268,21 +299,34 @@ public class LinuxHardwareReader : IHardwareReader {
             return null;
         }
 
+        string? fallbackFan = null;
+
         foreach (string dir in Directory.GetDirectories(hwmonBase)) {
             string nameFile = Path.Combine(dir, "name");
             string sensorName = File.Exists(nameFile) ? File.ReadAllText(nameFile).Trim().ToLowerInvariant() : "";
-            if (sensorName is "amdgpu" or "nouveau") {
+            if (sensorName is "amdgpu" or "nouveau" or "nvidia") {
                 continue;
             }
 
-            for (int i = 1; i <= 5; i++) {
-                string fanFile = Path.Combine(dir, $"fan{i}_input");
-                if (File.Exists(fanFile) && ReadRawIntFile(fanFile) > 0) {
-                    return fanFile;
+            try {
+                var fanInputs = Directory.GetFiles(dir, "fan*_input");
+                foreach (string fanFile in fanInputs) {
+                    string labelFile = fanFile.Replace("_input", "_label");
+                    if (File.Exists(labelFile)) {
+                        string label = File.ReadAllText(labelFile).Trim().ToLowerInvariant();
+                        if (label.Contains("cpu")) {
+                            return fanFile;
+                        }
+                    }
+
+                    fallbackFan ??= fanFile;
                 }
             }
+            catch {
+                // Ignorovat případnou chybu přístupových práv
+            }
         }
-        return null;
+        return fallbackFan;
     }
 
     private static string? FindNvmeTempFile() {
@@ -661,13 +705,43 @@ public class LinuxHardwareReader : IHardwareReader {
                 powerWatts = (int)Math.Round(rawWatts);
             }
 
+            int load = 0;
+            if (double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawLoad)) {
+                load = (int)Math.Round(rawLoad);
+            }
+
+            int temp = 0;
+            if (double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawTemp)) {
+                temp = (int)Math.Round(rawTemp);
+            }
+
+            int freq = 0;
+            if (double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawFreq)) {
+                freq = (int)Math.Round(rawFreq);
+            }
+
+            int used = 0;
+            if (double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawUsed)) {
+                used = (int)Math.Round(rawUsed);
+            }
+
+            int total = 0;
+            if (double.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawTotal)) {
+                total = (int)Math.Round(rawTotal);
+            }
+
+            int fan = 0;
+            if (double.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double rawFan)) {
+                fan = (int)Math.Round(rawFan);
+            }
+
             return new GpuStats {
-                Load = int.TryParse(parts[0], out int load) ? load : 0,
-                Temp = int.TryParse(parts[1], out int temp) ? temp : 0,
-                Freq = int.TryParse(parts[2], out int freq) ? freq : 0,
-                VramUsedMb = int.TryParse(parts[3], out int used) ? used : 0,
-                VramTotalMb = int.TryParse(parts[4], out int total) ? total : 0,
-                FanPercent = int.TryParse(parts[5], out int fan) ? fan : 0,
+                Load = load,
+                Temp = temp,
+                Freq = freq,
+                VramUsedMb = used,
+                VramTotalMb = total,
+                FanPercent = fan,
                 PowerWatts = powerWatts
             };
         }

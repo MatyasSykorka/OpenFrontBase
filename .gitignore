@@ -15,3 +15,11 @@ build/
 .DS_Store
 Thumbs.db
 .zed/
+
+# Custom wallpaper picture (ignore personal images and generated data)
+firmware/openfrontbase_firmware/src/picture/*.png
+firmware/openfrontbase_firmware/src/picture/*.jpg
+firmware/openfrontbase_firmware/src/picture/*.jpeg
+firmware/openfrontbase_firmware/src/picture/*.webp
+firmware/openfrontbase_firmware/src/picture/*.bmp
+firmware/openfrontbase_firmware/src/picture/custom_wallpaper_data.h

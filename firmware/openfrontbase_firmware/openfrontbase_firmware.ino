@@ -3,11 +3,13 @@
 #include <lvgl.h>
 #include "lvgl_v8_port.h"
 #include <ArduinoJson.h>
+#include <Preferences.h>
 
 // Vygenerované UI z EEZ Studia
 #include "src/ui/ui.h"
 #include "src/ui/screens.h"
 #include "src/ui/actions.h"
+#include "src/picture/wallpaper.h"
 
 using namespace esp_panel::board;
 
@@ -17,6 +19,7 @@ using namespace esp_panel::board;
 #define LCD_RST             3
 
 Board *board = nullptr;
+Preferences prefs;
 String serialRxBuffer = "";
 unsigned long lastStatTimeMs = 0;
 bool isBacklightOn = true;
@@ -27,6 +30,7 @@ struct TelemetryState {
     String gpuName = "Waiting for PC...";
     String ramName = "System RAM";
     String diskName = "System Disk";
+    String netName = "Network";
     int ramTotalGb = 0;
     int diskTotalGb = 0;
 
@@ -54,6 +58,9 @@ struct TelemetryState {
 
     int netDlKbps = 0;
     int netUlKbps = 0;
+
+    String timeStr = "--:--";
+    String dateStr = "";
 } telemetry;
 
 // Waveshare ESP32-S3-Touch-LCD-4.3 má USB-C vyvedený přes čip CH343 na UART0 (Serial0).
@@ -69,7 +76,23 @@ struct TelemetryState {
 void processSerialLine(const String &line);
 void updateUiWidgets();
 void setBacklight(bool enable);
-void setChildLabelText(lv_obj_t *parent, uint32_t index, const char *text);
+static void onMainBtnMatrixClick(lv_event_t *e);
+
+// Uložení aktuální obrazovky do NVS flash paměti (voláno i z actions.c)
+extern "C" void persist_screen_selection(enum ScreensEnum screenId) {
+    if (prefs.isKey("last_scr")) {
+        if (prefs.getInt("last_scr", -1) == (int)screenId) {
+            return;
+        }
+    }
+    prefs.putInt("last_scr", (int)screenId);
+}
+
+static inline void setLabelText(lv_obj_t *obj, const char *text) {
+    if (obj != nullptr) {
+        lv_label_set_text(obj, text);
+    }
+}
 
 void setup() {
     BoardSerial.begin(115200);
@@ -78,6 +101,9 @@ void setup() {
 #endif
     serialRxBuffer.reserve(1024);
     delay(500);
+
+    // Inicializace NVS paměti pro trvalé nastavení
+    prefs.begin("openfront", false);
 
     // 1. Inicializace desky Waveshare (RGB displej, dotyk GT911 a expandér CH422G)
     board = new Board();
@@ -90,6 +116,23 @@ void setup() {
     // 3. Vykreslení UI z EEZ Studia
     if (lvgl_port_lock(-1)) {
         ui_init();
+
+        // Inicializace tapety (umístění do pozadí, hodiny a dotyková plocha do popředí)
+        init_wallpaper_widget(objects.image_wallpaper, objects.clock_time, objects.home_bttn_6);
+
+        // Obsluha přepínání obrazovek z matice tlačítek na hlavní obrazovce (Screen Main)
+        lv_obj_t *btnm = objects.obj0 != nullptr ? objects.obj0 : (objects.main != nullptr ? lv_obj_get_child(objects.main, 0) : nullptr);
+        if (btnm != nullptr) {
+            lv_obj_add_event_cb(btnm, onMainBtnMatrixClick, LV_EVENT_VALUE_CHANGED, NULL);
+        }
+
+        // Načtení naposledy otevřené obrazovky z NVS paměti (výchozí: ALL)
+        int savedScreen = prefs.getInt("last_scr", (int)SCREEN_ID_ALL);
+        if (savedScreen >= _SCREEN_ID_FIRST && savedScreen <= _SCREEN_ID_LAST) {
+            loadScreen((enum ScreensEnum)savedScreen);
+        }
+
+        updateUiWidgets();
         lvgl_port_unlock();
     }
 }
@@ -181,10 +224,16 @@ void processSerialLine(const String &line) {
         telemetry.ramTotalGb = doc["ram_total_gb"] | 0;
         telemetry.diskName = doc["disk_name"] | "System Disk";
         telemetry.diskTotalGb = doc["disk_total_gb"] | 0;
+        telemetry.netName = doc["net_name"] | "Network";
 
-        // Automatické přepnutí na obrazovku All po přijetí specifikací z PC
+        // Pokud je v NVS uložena konkrétní obrazovka, zachováme ji, jinak výchozí ALL
+        int savedScreen = prefs.getInt("last_scr", (int)SCREEN_ID_ALL);
+        if (savedScreen < _SCREEN_ID_FIRST || savedScreen > _SCREEN_ID_LAST) {
+            savedScreen = (int)SCREEN_ID_ALL;
+        }
+
         if (lvgl_port_lock(-1)) {
-            loadScreen(SCREEN_ID_ALL);
+            loadScreen((enum ScreensEnum)savedScreen);
             lvgl_port_unlock();
         }
 
@@ -200,6 +249,9 @@ void processSerialLine(const String &line) {
         else if (!screenOn && isBacklightOn) {
             setBacklight(false);
         }
+
+        telemetry.timeStr = doc["time"] | "";
+        telemetry.dateStr = doc["date"] | "";
 
         telemetry.pcPowerW = doc["pc_power_w"] | 0;
 
@@ -243,79 +295,153 @@ void setBacklight(bool enable) {
     }
 }
 
-void setChildLabelText(lv_obj_t *parent, uint32_t index, const char *text) {
-    lv_obj_t *child = lv_obj_get_child(parent, index);
-    if (child != nullptr) {
-        lv_label_set_text(child, text);
+static void onMainBtnMatrixClick(lv_event_t *e) {
+    lv_obj_t *obj = lv_event_get_target(e);
+    uint16_t id = lv_btnmatrix_get_selected_btn(obj);
+    if (id == LV_BTNMATRIX_BTN_NONE) return;
+    const char *txt = lv_btnmatrix_get_btn_text(obj, id);
+    if (!txt) return;
+
+    enum ScreensEnum target = SCREEN_ID_MAIN;
+    if (strcmp(txt, "All") == 0) {
+        target = SCREEN_ID_ALL;
+    } else if (strcmp(txt, "settings") == 0) {
+        target = SCREEN_ID_SETTINGS;
+    } else if (strcmp(txt, "wallpaper") == 0) {
+        target = SCREEN_ID_WALLPAPER;
+    } else if (strcmp(txt, "Agent status") == 0) {
+        target = SCREEN_ID_AGENT_STATUS;
+    } else if (strcmp(txt, "CPU") == 0) {
+        target = SCREEN_ID_CPU;
+    } else if (strcmp(txt, "GPU") == 0) {
+        target = SCREEN_ID_GPU;
+    } else if (strcmp(txt, "RAM & Disk") == 0) {
+        target = SCREEN_ID_RAM_AND_DISK;
+    } else if (strcmp(txt, "Net") == 0) {
+        target = SCREEN_ID_NET;
+    } else {
+        return;
     }
+
+    loadScreen(target);
+    persist_screen_selection(target);
 }
 
 void updateUiWidgets() {
     if (lvgl_port_lock(-1)) {
-        if (objects.all != nullptr) {
-            char buf[32];
+        char buf[64];
 
-            // --- CPU (indexy 6 až 10) ---
-            snprintf(buf, sizeof(buf), "%d RPM", telemetry.cpuFanRpm);
-            setChildLabelText(objects.all, 6, buf);
+        // ==========================================
+        // 0. NÁZVY KOMPONENT (Specs)
+        // ==========================================
+        setLabelText(objects.cpu_name_label_1, telemetry.cpuName.c_str());
+        setLabelText(objects.cpu_name_label, telemetry.cpuName.c_str());
 
-            snprintf(buf, sizeof(buf), "%d C", telemetry.cpuTemp);
-            setChildLabelText(objects.all, 7, buf);
+        setLabelText(objects.gpu_name_label_1, telemetry.gpuName.c_str());
+        setLabelText(objects.gpu_name_label, telemetry.gpuName.c_str());
 
-            snprintf(buf, sizeof(buf), "%d MHz", telemetry.cpuFreq);
-            setChildLabelText(objects.all, 8, buf);
+        setLabelText(objects.ram_name_label_1, telemetry.ramName.c_str());
+        setLabelText(objects.ram_name_label, telemetry.ramName.c_str());
 
-            snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
-            setChildLabelText(objects.all, 9, buf);
+        setLabelText(objects.disk_name_label_1, telemetry.diskName.c_str());
+        setLabelText(objects.disk_name_label, telemetry.diskName.c_str());
 
-            snprintf(buf, sizeof(buf), "%d %%", telemetry.cpuLoad);
-            setChildLabelText(objects.all, 10, buf);
+        setLabelText(objects.network_device_name_label, telemetry.netName.c_str());
 
-            // --- RAM (indexy 14 a 15) ---
-            snprintf(buf, sizeof(buf), "%d MB (%d %%)", telemetry.ramUsedMb, telemetry.ramLoad);
-            setChildLabelText(objects.all, 14, buf);
+        // ==========================================
+        // 1. CPU TELEMETRIE (Obrazovka All + samostatná CPU)
+        // ==========================================
+        snprintf(buf, sizeof(buf), "%d RPM", telemetry.cpuFanRpm);
+        setLabelText(objects.cpu_fan_text_1, buf);
+        setLabelText(objects.cpu_fan_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d GB", telemetry.ramTotalGb);
-            setChildLabelText(objects.all, 15, buf);
+        snprintf(buf, sizeof(buf), "%d °C", telemetry.cpuTemp);
+        setLabelText(objects.cpu_temp_text_1, buf);
+        setLabelText(objects.cpu_temp_text, buf);
 
-            // --- GPU (indexy 22 až 26, VRAM 28 a 30) ---
-            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuFanPct);
-            setChildLabelText(objects.all, 22, buf);
+        snprintf(buf, sizeof(buf), "%d MHz", telemetry.cpuFreq);
+        setLabelText(objects.cpu_clock_text_1, buf);
+        setLabelText(objects.cpu_clock_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d C", telemetry.gpuTemp);
-            setChildLabelText(objects.all, 23, buf);
+        snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
+        setLabelText(objects.cpu_power_text_1, buf);
+        setLabelText(objects.cpu_power_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d MHz", telemetry.gpuFreq);
-            setChildLabelText(objects.all, 24, buf);
+        snprintf(buf, sizeof(buf), "%d %%", telemetry.cpuLoad);
+        setLabelText(objects.cpu_usage_text_1, buf);
+        setLabelText(objects.cpu_usage_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d W", telemetry.gpuPowerW);
-            setChildLabelText(objects.all, 25, buf);
+        // ==========================================
+        // 2. GPU TELEMETRIE (Obrazovka All + samostatná GPU)
+        // ==========================================
+        snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuFanPct);
+        setLabelText(objects.gpu_fan_text_1, buf);
+        setLabelText(objects.gpu_fan_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuLoad);
-            setChildLabelText(objects.all, 26, buf);
+        snprintf(buf, sizeof(buf), "%d °C", telemetry.gpuTemp);
+        setLabelText(objects.gpu_temp_text_1, buf);
+        setLabelText(objects.gpu_temp_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramTotalMb);
-            setChildLabelText(objects.all, 28, buf);
+        snprintf(buf, sizeof(buf), "%d MHz", telemetry.gpuFreq);
+        setLabelText(objects.gpu_clock_text_1, buf);
+        setLabelText(objects.gpu_clock_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramUsedMb);
-            setChildLabelText(objects.all, 30, buf);
+        snprintf(buf, sizeof(buf), "%d W", telemetry.gpuPowerW);
+        setLabelText(objects.gpu_power_text_1, buf);
+        setLabelText(objects.gpu_power_text, buf);
 
-            // --- ROM / Disk (indexy 34, 35 a 37) ---
-            snprintf(buf, sizeof(buf), "%d GB (%d %%)", telemetry.diskUsedGb, telemetry.diskUsedPct);
-            setChildLabelText(objects.all, 34, buf);
+        snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuLoad);
+        setLabelText(objects.gpu_usage_text_1, buf);
+        setLabelText(objects.gpu_usage_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d GB", telemetry.diskTotalGb);
-            setChildLabelText(objects.all, 35, buf);
+        snprintf(buf, sizeof(buf), "%d MB", telemetry.vramTotalMb);
+        setLabelText(objects.gpu_vram_text_1, buf);
+        setLabelText(objects.gpu_vram_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d C", telemetry.diskTemp);
-            setChildLabelText(objects.all, 37, buf);
+        snprintf(buf, sizeof(buf), "%d MB", telemetry.vramUsedMb);
+        setLabelText(objects.gpu_vram_usage_text_1, buf);
+        setLabelText(objects.gpu_vram_usage_text, buf);
 
-            // --- NET (indexy 41 a 42) ---
-            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netUlKbps);
-            setChildLabelText(objects.all, 41, buf);
+        // ==========================================
+        // 3. RAM TELEMETRIE (Obrazovka All + RAM & Disk)
+        // ==========================================
+        snprintf(buf, sizeof(buf), "%d GB", telemetry.ramTotalGb);
+        setLabelText(objects.ram_capacity_text_1, buf);
+        setLabelText(objects.ram_capacity_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netDlKbps);
-            setChildLabelText(objects.all, 42, buf);
+        snprintf(buf, sizeof(buf), "%d MB (%d %%)", telemetry.ramUsedMb, telemetry.ramLoad);
+        setLabelText(objects.ram_used_text_1, buf);
+        setLabelText(objects.ram_used_text, buf);
+
+        // ==========================================
+        // 4. DISK / ROM (Obrazovka All + RAM & Disk)
+        // ==========================================
+        snprintf(buf, sizeof(buf), "%d GB", telemetry.diskTotalGb);
+        setLabelText(objects.disk_capacity_text_1, buf);
+        setLabelText(objects.disk_capacity_text, buf);
+
+        snprintf(buf, sizeof(buf), "%d GB (%d %%)", telemetry.diskUsedGb, telemetry.diskUsedPct);
+        setLabelText(objects.disk_used_text_1, buf);
+        setLabelText(objects.disk_used_text, buf);
+
+        snprintf(buf, sizeof(buf), "%d °C", telemetry.diskTemp);
+        setLabelText(objects.disk_temp_text_1, buf);
+        setLabelText(objects.disk_temp_text, buf);
+
+        // ==========================================
+        // 5. NET (Obrazovka Net)
+        // ==========================================
+        snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netDlKbps);
+        setLabelText(objects.net_download_text, buf);
+
+        snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netUlKbps);
+        setLabelText(objects.net_upload_text, buf);
+
+        // ==========================================
+        // 6. WALLPAPER / CLOCK (Obrazovka Wallpaper)
+        // ==========================================
+        if (telemetry.timeStr.length() > 0) {
+            setLabelText(objects.clock_time, telemetry.timeStr.c_str());
         }
 
         lvgl_port_unlock();

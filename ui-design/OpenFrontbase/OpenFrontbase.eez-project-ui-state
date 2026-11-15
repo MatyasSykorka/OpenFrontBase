@@ -1,7 +1,7 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/1",
-    "selectedActionObject": "[OpenFrontbase.eez-project]:/actions/0",
+    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/7",
+    "selectedFontObject": "[OpenFrontbase.eez-project]:/fonts/2",
     "subnavigationSelectedItems": {}
   },
   "layoutModel": {
@@ -115,7 +115,7 @@
             {
               "type": "row",
               "id": "#192da3ac-bdce-4ec2-a1ba-ead43dadc2b2",
-              "weight": 15,
+              "weight": 13.725141215485232,
               "children": [
                 {
                   "type": "tabset",
@@ -152,7 +152,7 @@
                 {
                   "type": "tabset",
                   "id": "#f2ddc680-363c-4a8b-9597-6364a2cb06e5",
-                  "weight": 1,
+                  "weight": 1.474435196195006,
                   "enableClose": false,
                   "children": [
                     {
@@ -168,7 +168,7 @@
                 {
                   "type": "tabset",
                   "id": "#b5dcf86f-09b4-4ba2-8221-0940289c0566",
-                  "weight": 1,
+                  "weight": 0.525564803804994,
                   "enableClose": false,
                   "children": [
                     {
@@ -186,20 +186,32 @@
             {
               "type": "tabset",
               "id": "EDITORS",
-              "weight": 58.78208119458703,
+              "weight": 61.55590433378616,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
                 {
                   "type": "tab",
-                  "id": "#c8f6fed3-a198-427e-bcff-a1e38bc54541",
-                  "name": "All",
+                  "id": "#8a330bdb-4c82-4d6d-80d0-beda38aca778",
+                  "name": "Wallpaper",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/1",
+                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/7",
                     "permanent": false
                   },
                   "icon": "svg:page"
+                },
+                {
+                  "type": "tab",
+                  "id": "#8cd74cfc-e84d-4442-9911-85325ac98fd8",
+                  "name": "Settings",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[OpenFrontbase.eez-project]:/settings",
+                    "subObjectPath": "[OpenFrontbase.eez-project]:/settings",
+                    "permanent": false
+                  },
+                  "icon": "material:settings"
                 }
               ],
               "active": true
@@ -207,12 +219,12 @@
             {
               "type": "row",
               "id": "#e05bb518-d075-4f5d-993b-89f5a98ee456",
-              "weight": 26.21791880541297,
+              "weight": 24.718954450728678,
               "children": [
                 {
                   "type": "tabset",
                   "id": "#2ec13fff-56be-49ce-b1d9-9690202a904b",
-                  "weight": 2,
+                  "weight": 2.241106719367589,
                   "children": [
                     {
                       "type": "tab",
@@ -227,7 +239,7 @@
                 {
                   "type": "tabset",
                   "id": "#5fce10b2-b85b-426c-9092-f1a3bb4c6517",
-                  "weight": 1,
+                  "weight": 0.758893280632411,
                   "children": [
                     {
                       "type": "tab",
@@ -442,10 +454,22 @@
               "type": "tabset",
               "id": "RUNTIME-EDITORS",
               "weight": 1,
-              "selected": -1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
-              "children": []
+              "children": [
+                {
+                  "type": "tab",
+                  "id": "#6585962b-cc73-4f4d-bdef-312f90adedad",
+                  "name": "Main",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/0",
+                    "permanent": false
+                  },
+                  "icon": "svg:page"
+                }
+              ],
+              "active": true
             },
             {
               "type": "row",
@@ -1054,15 +1078,13 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "1": {
-            "$selected": true
-          }
+          "0": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -602.9821428571429,
-          "y": -387.3392857142857
+          "x": -526.4868804664721,
+          "y": -395.51166180758
         },
         "scale": 1.5
       },
@@ -1077,13 +1099,17 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "6": {}
+          "0": {
+            "0": {},
+            "$selected": true
+          },
+          "2": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -545.0999999999997,
-          "y": -364.29999999999995
+          "x": -513.0823214285714,
+          "y": -366.55964285714276
         },
         "scale": 1.5
       },
@@ -1096,11 +1122,23 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/2[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {
+            "$selected": true
+          },
+          "1": {
+            "0": {},
+            "1": {},
+            "6": {},
+            "10": {}
+          }
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -703.1666666666667,
+          "y": -391.25297619047626
         },
         "scale": 1.5
       },
@@ -1113,13 +1151,23 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/3[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {},
+          "1": {
+            "0": {},
+            "1": {},
+            "2": {},
+            "3": {}
+          }
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -579.85,
+          "y": -377.19090909090903
         },
-        "scale": 1
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1130,13 +1178,26 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/4[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {
+            "$selected": true
+          },
+          "1": {
+            "0": {}
+          },
+          "2": {
+            "0": {},
+            "1": {}
+          }
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -554.1333333333334,
+          "y": -310.1
         },
-        "scale": 1
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1147,13 +1208,22 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/5[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {
+            "$selected": true
+          },
+          "1": {
+            "1": {}
+          }
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -555.1333333333334,
+          "y": -368.1
         },
-        "scale": 1
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1164,13 +1234,19 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/6[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {
+            "$selected": true
+          }
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -529,
+          "y": -260
         },
-        "scale": 1
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1181,13 +1257,17 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/7[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {}
+        }
+      },
       "transform": {
         "translate": {
-          "x": -443.85,
-          "y": -264.75
+          "x": -607.85,
+          "y": -381.75
         },
-        "scale": 1.1
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1198,13 +1278,36 @@
     },
     "[OpenFrontbase.eez-project]:/userPages/8[flow-state]": {
       "selectionFront": {},
-      "selectionBack": {},
+      "selectionBack": {
+        "0": {
+          "0": {}
+        }
+      },
       "transform": {
         "translate": {
-          "x": -400,
-          "y": -240
+          "x": -703.1666666666667,
+          "y": -391.25297619047626
         },
         "scale": 1.5
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[OpenFrontbase.eez-project]:/userPages/9[flow-state]": {
+      "selectionFront": {},
+      "selectionBack": {
+        "0": {}
+      },
+      "transform": {
+        "translate": {
+          "x": -703.1666666666667,
+          "y": -391.25297619047626
+        },
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1220,17 +1323,22 @@
   "searchMatchWholeWord": false,
   "replaceEnabled": false,
   "replaceText": "",
+  "pageRuntimeFrontFace": false,
   "breakpoints": {},
   "watchExpressions": [],
   "showComponentDescriptions": true,
   "logsPanelFilter": "all",
   "selectedStylePropertyName": "",
   "lvglPart": "MAIN",
-  "lvglState": "DEFAULT",
-  "lvglExpandedPropertiesGroup": [],
+  "lvglState": "HOVERED",
+  "lvglExpandedPropertiesGroup": [
+    "TEXT",
+    "BACKGROUND",
+    "BORDER"
+  ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
   "flowZoom": 1.5,
   "implementationLanguage": "C",
-  "openDialogDefaultPath": "/home/maty/Plocha/STC/Absolventka/Moje absolventka/Open PC Front Panel/OpenFrontBase/firmware/openfrontbase_firmware/src/ui/"
+  "openDialogDefaultPath": "/home/maty/Stažené/roboto/Roboto-Medium.ttf"
 }

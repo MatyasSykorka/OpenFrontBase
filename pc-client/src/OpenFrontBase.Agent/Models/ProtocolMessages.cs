@@ -60,6 +60,9 @@ public class SpecsMessage {
 
     [JsonPropertyName("disk_total_gb")]
     public int DiskTotalGb { get; set; }
+
+    [JsonPropertyName("net_name")]
+    public string NetName { get; set; } = "Network Adapter";
 }
 
 /// <summary>

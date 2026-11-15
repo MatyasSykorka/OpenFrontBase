@@ -7,7 +7,15 @@
 extern "C" {
 #endif
 
-extern void action_to_all(lv_event_t * e);
+extern void action_all_page(lv_event_t * e);
+extern void action_settings_page(lv_event_t * e);
+extern void action_wallpaper_page(lv_event_t * e);
+extern void action_agent_page(lv_event_t * e);
+extern void action_cpu_page(lv_event_t * e);
+extern void action_gpu_page(lv_event_t * e);
+extern void action_ra_mamd_disk_page(lv_event_t * e);
+extern void action_net_page(lv_event_t * e);
+extern void action_main_page(lv_event_t * e);
 
 #ifdef __cplusplus
 }

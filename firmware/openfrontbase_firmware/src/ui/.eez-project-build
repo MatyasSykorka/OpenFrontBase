@@ -11,6 +11,9 @@
     "styles.h",
     "ui.c",
     "ui.h",
+    "ui_font_roboto_bold_96px.c",
+    "ui_font_roboto_bold_title_64px.c",
+    "ui_font_roboto_bold_title_72px.c",
     "vars.h"
   ]
 }

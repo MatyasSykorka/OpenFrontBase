@@ -83,8 +83,22 @@ public class WindowsHardwareReader : IHardwareReader {
             RamName = ramName,
             RamTotalGb = (int)Math.Ceiling(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024.0 / 1024.0 / 1024.0),
             DiskName = diskName,
-            DiskTotalGb = diskTotalGb
+            DiskTotalGb = diskTotalGb,
+            NetName = DetectNetworkAdapterName()
         };
+    }
+
+    private static string DetectNetworkAdapterName() {
+        try {
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()) {
+                if (nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up &&
+                    nic.NetworkInterfaceType != System.Net.NetworkInformation.NetworkInterfaceType.Loopback) {
+                    return !string.IsNullOrWhiteSpace(nic.Description) ? nic.Description : nic.Name;
+                }
+            }
+        }
+        catch { }
+        return "Network";
     }
 
     public StatMessage GetCurrentTelemetry() {
@@ -114,12 +128,21 @@ public class WindowsHardwareReader : IHardwareReader {
                     }
                 }
             }
-            else if (hw.HardwareType == HardwareType.Motherboard) {
+            else if (hw.HardwareType == HardwareType.Motherboard || hw.HardwareType == HardwareType.Cooler) {
+                foreach (ISensor s in hw.Sensors) {
+                    if (s.SensorType == SensorType.Fan && (s.Value ?? 0) > 0) {
+                        if (s.Name.Contains("CPU", StringComparison.OrdinalIgnoreCase) || stat.Cpu.FanRpm == 0) {
+                            stat.Cpu.FanRpm = (int)Math.Round(s.Value ?? 0);
+                        }
+                    }
+                }
                 foreach (IHardware sub in hw.SubHardware) {
                     sub.Update();
                     foreach (ISensor s in sub.Sensors) {
-                        if (s.SensorType == SensorType.Fan && stat.Cpu.FanRpm == 0 && (s.Value ?? 0) > 0) {
-                            stat.Cpu.FanRpm = (int)Math.Round(s.Value ?? 0);
+                        if (s.SensorType == SensorType.Fan && (s.Value ?? 0) > 0) {
+                            if (s.Name.Contains("CPU", StringComparison.OrdinalIgnoreCase) || stat.Cpu.FanRpm == 0) {
+                                stat.Cpu.FanRpm = (int)Math.Round(s.Value ?? 0);
+                            }
                         }
                     }
                 }
