@@ -121,7 +121,7 @@ public class WindowsHardwareReader : IHardwareReader {
                         stat.Cpu.Temp = (int)Math.Round(s.Value ?? 0);
                     }
                     else if (s.SensorType == SensorType.Clock && s.Name.Contains("Core #1")) {
-                        stat.Cpu.Freq = (int)Math.Round(s.Value ?? 0);
+                        stat.Cpu.Freq = Math.Round((s.Value ?? 0) / 1000.0, 2);
                     }
                     else if (s.SensorType == SensorType.Power && s.Name.Contains("Package")) {
                         stat.Cpu.PowerWatts = (int)Math.Round(s.Value ?? 0);

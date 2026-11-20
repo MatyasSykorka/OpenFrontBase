@@ -37,7 +37,7 @@ struct TelemetryState {
     int pcPowerW = 0;
     int cpuLoad = 0;
     int cpuTemp = 0;
-    int cpuFreq = 0;
+    float cpuFreq = 0.0f;
     int cpuFanRpm = 0;
     int cpuPowerW = 0;
 
@@ -89,8 +89,28 @@ extern "C" void persist_screen_selection(enum ScreensEnum screenId) {
 }
 
 static inline void setLabelText(lv_obj_t *obj, const char *text) {
-    if (obj != nullptr) {
-        lv_label_set_text(obj, text);
+    if (obj != nullptr && text != nullptr) {
+        const char *cur = lv_label_get_text(obj);
+        if (cur == nullptr || strcmp(cur, text) != 0) {
+            lv_label_set_text(obj, text);
+        }
+    }
+}
+
+// Časovač pro pomalé blikání ukazatele teploty bílo-červeně při teplotě nad 90 °C
+static void onTempBlinkTimer(lv_timer_t *timer) {
+    if (objects.cpu_arc_temp == nullptr) {
+        return;
+    }
+
+    static bool isRed = false;
+    if (telemetry.cpuTemp >= 90) {
+        isRed = !isRed;
+        lv_color_t color = isRed ? lv_color_hex(0xff0000) : lv_color_hex(0xffffff);
+        lv_obj_set_style_arc_color(objects.cpu_arc_temp, color, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    } else if (isRed) {
+        isRed = false;
+        lv_obj_set_style_arc_color(objects.cpu_arc_temp, lv_color_hex(0xffffff), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     }
 }
 
@@ -116,6 +136,9 @@ void setup() {
     // 3. Vykreslení UI z EEZ Studia
     if (lvgl_port_lock(-1)) {
         ui_init();
+
+        // Časovač pro varovné blikání ukazatele teploty
+        lv_timer_create(onTempBlinkTimer, 500, NULL);
 
         // Inicializace tapety (umístění do pozadí, hodiny a dotyková plocha do popředí)
         init_wallpaper_widget(objects.image_wallpaper, objects.clock_time, objects.home_bttn_6);
@@ -257,7 +280,12 @@ void processSerialLine(const String &line) {
 
         telemetry.cpuLoad = doc["cpu"]["load"] | 0;
         telemetry.cpuTemp = doc["cpu"]["temp"] | 0;
-        telemetry.cpuFreq = doc["cpu"]["freq"] | 0;
+        float rawFreq = doc["cpu"]["freq"] | 0.0f;
+        if (rawFreq > 50.0f) {
+            telemetry.cpuFreq = rawFreq / 1000.0f;
+        } else {
+            telemetry.cpuFreq = rawFreq;
+        }
         telemetry.cpuFanRpm = doc["cpu"]["fan_rpm"] | 0;
         telemetry.cpuPowerW = doc["cpu"]["power_w"] | 0;
 
@@ -357,11 +385,36 @@ void updateUiWidgets() {
 
         snprintf(buf, sizeof(buf), "%d °C", telemetry.cpuTemp);
         setLabelText(objects.cpu_temp_text_1, buf);
+        snprintf(buf, sizeof(buf), "%d", telemetry.cpuTemp);
         setLabelText(objects.cpu_temp_text, buf);
 
-        snprintf(buf, sizeof(buf), "%d MHz", telemetry.cpuFreq);
+        snprintf(buf, sizeof(buf), "%.2f GHz", telemetry.cpuFreq);
         setLabelText(objects.cpu_clock_text_1, buf);
+        snprintf(buf, sizeof(buf), "%.2f", telemetry.cpuFreq);
         setLabelText(objects.cpu_clock_text, buf);
+
+        if (objects.cpu_arc_clock != nullptr) {
+            int val = (int)roundf(telemetry.cpuFreq * 1000.0f);
+            if (val < 0) val = 0;
+            if (val > 10000) val = 10000;
+            lv_arc_set_value(objects.cpu_arc_clock, val);
+        }
+        if (objects.cpu_arc_temp != nullptr) {
+            int t = telemetry.cpuTemp;
+            if (t < 0) t = 0;
+            if (t > 100) t = 100;
+            lv_arc_set_value(objects.cpu_arc_temp, t);
+        }
+        if (objects.cpu_arc_normal_usage != nullptr) {
+            int normalUsage = telemetry.cpuLoad > 90 ? 90 : telemetry.cpuLoad;
+            if (normalUsage < 0) normalUsage = 0;
+            lv_arc_set_value(objects.cpu_arc_normal_usage, normalUsage);
+        }
+        if (objects.cpu_arc_warning_usage != nullptr) {
+            int warnUsage = telemetry.cpuLoad > 90 ? telemetry.cpuLoad : 90;
+            if (warnUsage > 100) warnUsage = 100;
+            lv_arc_set_value(objects.cpu_arc_warning_usage, warnUsage);
+        }
 
         snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
         setLabelText(objects.cpu_power_text_1, buf);

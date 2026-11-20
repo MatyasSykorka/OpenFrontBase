@@ -34,7 +34,6 @@ typedef struct _objects_t {
     lv_obj_t *wallpaper;
     lv_obj_t *settings;
     lv_obj_t *obj0;
-    lv_obj_t *home_bttn;
     lv_obj_t *cpu_conteiner_1;
     lv_obj_t *cpu_main_label_1;
     lv_obj_t *cpu_name_label_1;
@@ -81,21 +80,32 @@ typedef struct _objects_t {
     lv_obj_t *ram_capacity_label_1;
     lv_obj_t *ram_used_text_1;
     lv_obj_t *ram_capacity_text_1;
-    lv_obj_t *home_bttn_1;
-    lv_obj_t *cpu_conteiner;
+    lv_obj_t *home_bttn;
     lv_obj_t *cpu_main_label;
     lv_obj_t *cpu_name_label;
-    lv_obj_t *cpu_usage_text;
-    lv_obj_t *cpu_power_text;
-    lv_obj_t *cpu_clock_text;
-    lv_obj_t *cpu_temp_text;
-    lv_obj_t *cpu_fan_text;
-    lv_obj_t *cpu_power_label;
-    lv_obj_t *cpu_clock_label;
-    lv_obj_t *cpu_temp_label;
-    lv_obj_t *cpu_fan_label;
+    lv_obj_t *cpu_arc_normal_usage;
+    lv_obj_t *cpu_arc_warning_usage;
+    lv_obj_t *cpu_arc_usage_design;
+    lv_obj_t *cpu_meter_usage;
     lv_obj_t *cpu_usage_label;
-    lv_obj_t *home_bttn_2;
+    lv_obj_t *cpu_usage_text;
+    lv_obj_t *cpu_arc_temp;
+    lv_obj_t *cpu_arc_temp_design;
+    lv_obj_t *cpu_temp_label;
+    lv_obj_t *cpu_temp_text;
+    lv_obj_t *cpu_temp_meter;
+    lv_obj_t *cpu_arc_clock;
+    lv_obj_t *cpu_arc_clock_design;
+    lv_obj_t *cpu_clock_meter;
+    lv_obj_t *cpu_clock_label;
+    lv_obj_t *cpu_label_ghz;
+    lv_obj_t *cpu_clock_text;
+    lv_obj_t *cpu_fan_label;
+    lv_obj_t *cpu_fan_text;
+    lv_obj_t *cpu_power_text;
+    lv_obj_t *cpu_power_label;
+    lv_obj_t *home_bttn_1;
+    lv_obj_t *cpu_bottom_line;
     lv_obj_t *gpu_conteiner;
     lv_obj_t *gpu_title_label;
     lv_obj_t *gpu_name_label;
@@ -113,7 +123,7 @@ typedef struct _objects_t {
     lv_obj_t *gpu_vram_text;
     lv_obj_t *gpu_vram_usage_label;
     lv_obj_t *gpu_vram_usage_text;
-    lv_obj_t *home_bttn_3;
+    lv_obj_t *home_bttn_2;
     lv_obj_t *ram_conteiner;
     lv_obj_t *ram_title_label;
     lv_obj_t *ram_name_label;
@@ -130,7 +140,7 @@ typedef struct _objects_t {
     lv_obj_t *disk_temp_label;
     lv_obj_t *disk_used_label;
     lv_obj_t *disk_capacity_label;
-    lv_obj_t *home_bttn_4;
+    lv_obj_t *home_bttn_3;
     lv_obj_t *net_conteiner;
     lv_obj_t *net_title_label;
     lv_obj_t *network_device_name_label;
@@ -138,14 +148,23 @@ typedef struct _objects_t {
     lv_obj_t *net_upload_label;
     lv_obj_t *net_download_text;
     lv_obj_t *net_upload_text;
+    lv_obj_t *home_bttn_4;
     lv_obj_t *home_bttn_5;
-    lv_obj_t *home_bttn_6;
     lv_obj_t *clock_time;
     lv_obj_t *image_wallpaper;
+    lv_obj_t *home_bttn_6;
     lv_obj_t *home_bttn_7;
 } objects_t;
 
 extern objects_t objects;
+
+typedef struct {
+    lv_meter_scale_t *scale;
+    lv_meter_scale_t *scale1;
+    lv_meter_scale_t *scale2;
+} screen_cpu_state_t;
+
+extern screen_cpu_state_t screen_cpu_state;
 
 void create_screen_main();
 void tick_screen_main();

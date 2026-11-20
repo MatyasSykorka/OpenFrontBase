@@ -112,7 +112,7 @@ public class CpuStats {
     public int Temp { get; set; }
 
     [JsonPropertyName("freq")]
-    public int Freq { get; set; }
+    public double Freq { get; set; }
 
     [JsonPropertyName("fan_rpm")]
     public int FanRpm { get; set; }

@@ -52,7 +52,7 @@ public class LinuxHardwareReader : IHardwareReader {
         var cpu = new CpuStats {
             Load = ReadCpuLoad(),
             Temp = ReadSensorMilliValue(_cpuTempFile),
-            Freq = ReadCpuFreqMhz(),
+            Freq = Math.Round(ReadCpuFreqMhz() / 1000.0, 2),
             FanRpm = ReadRawIntFile(_cpuFanFile),
             PowerWatts = ReadCpuPowerWatts()
         };
