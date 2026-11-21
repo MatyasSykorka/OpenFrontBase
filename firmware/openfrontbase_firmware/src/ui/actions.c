@@ -6,6 +6,10 @@
 extern void persist_screen_selection(enum ScreensEnum screenId);
 
 static inline void navigate_to(enum ScreensEnum screenId) {
+    lv_indev_t *indev = lv_indev_get_act();
+    if (indev != NULL) {
+        lv_indev_wait_release(indev);
+    }
     loadScreen(screenId);
     persist_screen_selection(screenId);
 }
