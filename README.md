@@ -18,7 +18,7 @@
 ![Windows](https://custom-icon-badges.demolab.com/badge/Windows-0078D6?style=for-the-badge&logo=windows11&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 
-*Tested on an x86_64 computers.*
+*Tested on an x86_64 systems.*
 
 ## Struktura projektu / Project Structure
 - `firmware/` – ESP32-S3 Arduino C++ firmware & LVGL 8.4.0 UI
