@@ -100,8 +100,34 @@ public class StatMessage {
     [JsonPropertyName("net")]
     public NetStats Net { get; set; } = new();
 
+    [JsonPropertyName("agent")]
+    public AgentStats Agent { get; set; } = new();
+
     [JsonPropertyName("scr_on")]
     public bool ScreenOn { get; set; } = true;
+}
+
+public class AgentStats {
+    [JsonPropertyName("active")]
+    public bool Active { get; set; } = false;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "Hermes Agent";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "Waiting...";
+
+    [JsonPropertyName("tool")]
+    public string Tool { get; set; } = "-";
+
+    [JsonPropertyName("tok_s")]
+    public double TokensPerSecond { get; set; } = 0.0;
+
+    [JsonPropertyName("mem_mb")]
+    public int MemoryUsageMb { get; set; } = 0;
+
+    [JsonPropertyName("ctx")]
+    public string ContextWindow { get; set; } = "-";
 }
 
 public class CpuStats {
@@ -134,6 +160,9 @@ public class GpuStats {
     [JsonPropertyName("fan_pct")]
     public int FanPercent { get; set; }
 
+    [JsonPropertyName("fan_rpm")]
+    public int FanRpm { get; set; }
+
     [JsonPropertyName("power_w")]
     public int PowerWatts { get; set; }
 
@@ -165,8 +194,14 @@ public class DiskStats {
 
 public class NetStats {
     [JsonPropertyName("dl_kbps")]
-    public int DownloadKbps { get; set; }
+    public double DownloadKbps { get; set; }
 
     [JsonPropertyName("ul_kbps")]
-    public int UploadKbps { get; set; }
+    public double UploadKbps { get; set; }
+
+    [JsonPropertyName("dl_peak")]
+    public double DownloadPeak { get; set; }
+
+    [JsonPropertyName("ul_peak")]
+    public double UploadPeak { get; set; }
 }

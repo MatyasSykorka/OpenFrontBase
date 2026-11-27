@@ -1,7 +1,7 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/3",
-    "selectedFontObject": "[OpenFrontbase.eez-project]:/fonts/2",
+    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/8",
+    "selectedFontObject": "[OpenFrontbase.eez-project]:/fonts/0",
     "subnavigationSelectedItems": {}
   },
   "layoutModel": {
@@ -193,10 +193,10 @@
                 {
                   "type": "tab",
                   "id": "#8a330bdb-4c82-4d6d-80d0-beda38aca778",
-                  "name": "GPU",
+                  "name": "Settings",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/3",
+                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/8",
                     "permanent": false
                   },
                   "icon": "svg:page"
@@ -224,7 +224,7 @@
                 {
                   "type": "tabset",
                   "id": "#2ec13fff-56be-49ce-b1d9-9690202a904b",
-                  "weight": 2.3407114624505927,
+                  "weight": 2.466403162055336,
                   "children": [
                     {
                       "type": "tab",
@@ -239,7 +239,7 @@
                 {
                   "type": "tabset",
                   "id": "#5fce10b2-b85b-426c-9092-f1a3bb4c6517",
-                  "weight": 0.6592885375494071,
+                  "weight": 0.5335968379446641,
                   "children": [
                     {
                       "type": "tab",
@@ -1084,10 +1084,10 @@
       },
       "transform": {
         "translate": {
-          "x": -526.4868804664721,
-          "y": -395.51166180758
+          "x": -291.4075266934231,
+          "y": -470.6300520300884
         },
-        "scale": 1.75
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1100,19 +1100,20 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
+          "0": {},
           "1": {},
+          "2": {},
           "3": {},
-          "4": {
-            "0": {}
-          }
+          "4": {},
+          "5": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -513.0823214285714,
-          "y": -366.55964285714276
+          "x": -300.7973214285714,
+          "y": -415.23464285714283
         },
-        "scale": 1.75
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1155,10 +1156,10 @@
       },
       "transform": {
         "translate": {
-          "x": -672.0166666666667,
-          "y": -423.25297619047626
+          "x": -279.01666666666665,
+          "y": -431.25297619047626
         },
-        "scale": 1.75
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1171,24 +1172,26 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "1": {},
-          "7": {},
+          "0": {},
+          "2": {},
           "8": {},
           "9": {},
           "10": {},
           "11": {},
+          "12": {},
           "16": {},
           "18": {},
           "24": {},
+          "28": {},
           "29": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -679.9916666666667,
-          "y": -429.9727272727272
+          "x": -284.9916666666667,
+          "y": -404.9727272727272
         },
-        "scale": 1.75
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1201,22 +1204,22 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "0": {
-            "0": {}
-          },
-          "1": {
-            "0": {},
-            "1": {}
-          },
-          "2": {}
+          "1": {},
+          "2": {},
+          "3": {},
+          "4": {},
+          "8": {},
+          "9": {},
+          "16": {},
+          "17": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -554.1333333333334,
-          "y": -310.1
+          "x": -272.3591111111112,
+          "y": -423.1426666666667
         },
-        "scale": 1.75
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1229,20 +1232,18 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "0": {
-            "1": {}
-          },
-          "1": {
-            "$selected": true
-          }
+          "0": {},
+          "1": {},
+          "11": {},
+          "12": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -555.1333333333334,
-          "y": -368.1
+          "x": -270.33333333333337,
+          "y": -407.04166666666674
         },
-        "scale": 1.5
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1260,10 +1261,10 @@
       },
       "transform": {
         "translate": {
-          "x": -529,
-          "y": -260
+          "x": -276.8399999999999,
+          "y": -367
         },
-        "scale": 1.5
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1284,10 +1285,10 @@
       },
       "transform": {
         "translate": {
-          "x": -562.85,
-          "y": -392.75
+          "x": -268.85,
+          "y": -394.75
         },
-        "scale": 1.5
+        "scale": 0.67
       },
       "timeline": {
         "isEditorActive": false,
@@ -1305,10 +1306,10 @@
       },
       "transform": {
         "translate": {
-          "x": -583.1666666666667,
-          "y": -372.25297619047626
+          "x": -414.4993781094528,
+          "y": -304.37428926794615
         },
-        "scale": 1.5
+        "scale": 1.1
       },
       "timeline": {
         "isEditorActive": false,
@@ -1349,20 +1350,25 @@
   "showComponentDescriptions": true,
   "logsPanelFilter": "all",
   "selectedStylePropertyName": "",
-  "lvglPart": "MAIN",
+  "lvglPart": "INDICATOR",
   "lvglState": "DEFAULT",
   "lvglExpandedPropertiesGroup": [
     "POSITION AND SIZE",
     "TEXT",
     "BORDER",
-    "BACKGROUND",
     "PADDING",
     "ARC",
-    "MISCELLANEOUS"
+    "MISCELLANEOUS",
+    "OUTLINE",
+    "SHADOW",
+    "IMAGE",
+    "LINE",
+    "LAYOUT",
+    "BACKGROUND"
   ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
-  "flowZoom": 1.75,
+  "flowZoom": 1.1,
   "implementationLanguage": "C",
   "openDialogDefaultPath": "/home/maty/Stažené/roboto/Roboto-Medium.ttf"
 }

@@ -46,7 +46,7 @@
  */
 #define LVGL_PORT_TASK_MAX_DELAY_MS             (500)       // The maximum delay of the LVGL timer task, in milliseconds
 #define LVGL_PORT_TASK_MIN_DELAY_MS             (2)         // The minimum delay of the LVGL timer task, in milliseconds
-#define LVGL_PORT_TASK_STACK_SIZE               (6 * 1024)  // The stack size of the LVGL timer task, in bytes
+#define LVGL_PORT_TASK_STACK_SIZE               (16 * 1024) // The stack size of the LVGL timer task, in bytes
 #define LVGL_PORT_TASK_PRIORITY                 (2)         // The priority of the LVGL timer task
 #ifdef ARDUINO_RUNNING_CORE
 #define LVGL_PORT_TASK_CORE                     (ARDUINO_RUNNING_CORE)  // Valid if using Arduino
@@ -74,7 +74,7 @@
 #define LVGL_PORT_AVOID_TEARING_MODE            (CONFIG_LVGL_PORT_AVOID_TEARING_MODE)
                                                         // Valid if using ESP-IDF
 #else
-#define LVGL_PORT_AVOID_TEARING_MODE            (3)     // Valid if using Arduino
+#define LVGL_PORT_AVOID_TEARING_MODE            (3)     // Mode 3: Hardware double-buffer direct mode synchronized on VSYNC
 #endif
 
 #if LVGL_PORT_AVOID_TEARING_MODE != 0
@@ -126,6 +126,9 @@
         #define LVGL_PORT_DISP_BUFFER_NUM           (3)
     #endif
 #endif
+#else
+#define LVGL_PORT_AVOID_TEAR                    (0)
+#define LVGL_PORT_ROTATION_DEGREE               (0)
 #endif /* LVGL_PORT_AVOID_TEARING_MODE */
 
 // *INDENT-ON*

@@ -11,6 +11,12 @@ public class WindowsHardwareReader : IHardwareReader {
     private const int BaseSystemPowerWatts = 35;
     private readonly Computer _computer;
 
+    private long _prevNetRxBytes;
+    private long _prevNetTxBytes;
+    private DateTime _prevNetTime = DateTime.UtcNow;
+    private double _peakDlMbps = 0.0;
+    private double _peakUlMbps = 0.0;
+
     public WindowsHardwareReader() {
         _computer = new Computer {
             IsCpuEnabled = true,
@@ -163,6 +169,9 @@ public class WindowsHardwareReader : IHardwareReader {
                     else if (s.SensorType == SensorType.Control && s.Name.Contains("Fan")) {
                         stat.Gpu.FanPercent = (int)Math.Round(s.Value ?? 0);
                     }
+                    else if (s.SensorType == SensorType.Fan && s.Name.Contains("Fan")) {
+                        stat.Gpu.FanRpm = (int)Math.Round(s.Value ?? 0);
+                    }
                     else if (s.SensorType == SensorType.Power && s.Name.Contains("Package")) {
                         stat.Gpu.PowerWatts = (int)Math.Round(s.Value ?? 0);
                     }
@@ -208,8 +217,56 @@ public class WindowsHardwareReader : IHardwareReader {
             // Ignorujeme chybu čtení kapacity disku
         }
 
+        stat.Net = ReadNetworkSpeed();
+        stat.Agent = HermesStatusReader.ReadStatus();
+
         stat.PcPowerWatts = stat.Cpu.PowerWatts + stat.Gpu.PowerWatts + BaseSystemPowerWatts;
         return stat;
+    }
+
+    private NetStats ReadNetworkSpeed() {
+        try {
+            long rxTotal = 0;
+            long txTotal = 0;
+
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()) {
+                if (nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up &&
+                    nic.NetworkInterfaceType != System.Net.NetworkInformation.NetworkInterfaceType.Loopback) {
+                    var stats = nic.GetIPStatistics();
+                    rxTotal += stats.BytesReceived;
+                    txTotal += stats.BytesSent;
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            double seconds = (now - _prevNetTime).TotalSeconds;
+
+            double dlMbps = 0.0;
+            double ulMbps = 0.0;
+
+            if (seconds > 0 && _prevNetRxBytes > 0) {
+                // (bytes * 8) / (1024 * 1024 * seconds) = megabits per second
+                dlMbps = Math.Round(Math.Max(0.0, (rxTotal - _prevNetRxBytes) * 8.0 / 1024.0 / 1024.0 / seconds), 1);
+                ulMbps = Math.Round(Math.Max(0.0, (txTotal - _prevNetTxBytes) * 8.0 / 1024.0 / 1024.0 / seconds), 1);
+            }
+
+            if (dlMbps > _peakDlMbps) _peakDlMbps = dlMbps;
+            if (ulMbps > _peakUlMbps) _peakUlMbps = ulMbps;
+
+            _prevNetRxBytes = rxTotal;
+            _prevNetTxBytes = txTotal;
+            _prevNetTime = now;
+
+            return new NetStats {
+                DownloadKbps = dlMbps,
+                UploadKbps = ulMbps,
+                DownloadPeak = _peakDlMbps,
+                UploadPeak = _peakUlMbps
+            };
+        }
+        catch {
+            return new NetStats();
+        }
     }
 
     public void Dispose() {

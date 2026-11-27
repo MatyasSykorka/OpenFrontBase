@@ -12,6 +12,7 @@
 #include "src/picture/wallpaper.h"
 
 using namespace esp_panel::board;
+using namespace esp_panel::drivers;
 
 // Piny expandéru CH422G na desce Waveshare ESP32-S3-Touch-LCD-4.3
 #define TP_RST              1
@@ -46,10 +47,8 @@ static void nvsWriteTask(void *arg) {
     }
 }
 
-// === OPTIMALIZACE 2: Rate-limiting UI aktualizací ===
-static unsigned long lastUiUpdateMs = 0;
-static bool uiUpdatePending = false;
-#define UI_UPDATE_INTERVAL_MS  200  // Max 5 aktualizací za sekundu
+// === OPTIMALIZACE 2: Flag pro UI aktualizaci (volatile – čtení z LVGL timeru, zápis z loop/serial) ===
+static volatile bool uiUpdatePending = false;
 
 // Struktura pro držení posledních přijatých dat z PC
 struct TelemetryState {
@@ -83,8 +82,20 @@ struct TelemetryState {
     int diskUsedGb = 0;
     int diskTemp = 0;
 
-    int netDlKbps = 0;
-    int netUlKbps = 0;
+    float netDlSpeed = 0.0f;
+    float netUlSpeed = 0.0f;
+    float netDlPeak = 0.0f;
+    float netUlPeak = 0.0f;
+
+    struct AgentTelemetry {
+        bool active = false;
+        String name = "Hermes Agent";
+        String status = "Waiting...";
+        String tool = "-";
+        float tokPerSec = 0.0f;
+        int memUsageMb = 0;
+        String contextWin = "-";
+    } agent;
 
     String timeStr = "--:--";
     String dateStr = "";
@@ -123,13 +134,21 @@ static inline void setLabelText(lv_obj_t *obj, const char *text) {
 }
 
 // === OPTIMALIZACE 6: Hystereze arc widgetů (snižuje počet překreslení) ===
-static inline void setArcValue(lv_obj_t *obj, int val) {
+static inline void setArcValue(lv_obj_t *obj, int val, int hysteresis = 1) {
     if (obj != nullptr) {
         int cur = lv_arc_get_value(obj);
-        // Překreslit jen při změně > 1 (hystereze), ale vždy pro krajní hodnoty
-        if (abs(cur - val) > 1 || (val == 0 && cur != 0) || (val == 100 && cur != 100)) {
+        // Překreslit jen při změně >= hysteresis, ale vždy pro krajní hodnoty
+        if (abs(cur - val) >= hysteresis || (val == 0 && cur != 0) || (val >= 100 && cur < 100)) {
             lv_arc_set_value(obj, val);
         }
+    }
+}
+
+// === OPRAVA DEADLOCKU: UI aktualizace probíhají POUZE uvnitř LVGL tasku ===
+static void onUiUpdateTimer(lv_timer_t *timer) {
+    if (uiUpdatePending) {
+        uiUpdatePending = false;
+        updateUiWidgets();
     }
 }
 
@@ -181,6 +200,22 @@ void setup() {
     // 1. Inicializace desky Waveshare (RGB displej, dotyk GT911 a expandér CH422G)
     board = new Board();
     board->init();
+
+    auto lcd = board->getLCD();
+#if LVGL_PORT_AVOID_TEAR
+    if (lcd != nullptr) {
+        lcd->configFrameBufferNumber(LVGL_PORT_DISP_BUFFER_NUM);
+    }
+#endif
+#if ESP_PANEL_DRIVERS_BUS_ENABLE_RGB && CONFIG_IDF_TARGET_ESP32S3
+    if (lcd != nullptr) {
+        auto lcd_bus = lcd->getBus();
+        if (lcd_bus && lcd_bus->getBasicAttributes().type == ESP_PANEL_BUS_TYPE_RGB) {
+            static_cast<BusRGB *>(lcd_bus)->configRGB_BounceBufferSize(lcd->getFrameWidth() * 10);
+        }
+    }
+#endif
+
     board->begin();
 
     // 2. Spuštění LVGL tasku
@@ -192,6 +227,9 @@ void setup() {
 
         // Časovač pro varovné blikání ukazatele teploty
         lv_timer_create(onTempBlinkTimer, 500, NULL);
+
+        // Časovač pro bezpečné UI aktualizace přímo z LVGL kontextu
+        lv_timer_create(onUiUpdateTimer, 100, NULL);
 
         // Inicializace tapety (umístění do pozadí, hodiny a dotyková plocha do popředí)
         init_wallpaper_widget(objects.image_wallpaper, objects.clock_time, objects.home_bttn_6);
@@ -219,14 +257,17 @@ void setup() {
             lv_obj_add_event_cb(btnm, onMainBtnMatrixClick, LV_EVENT_CLICKED, NULL);
         }
 
-        // Načtení naposledy otevřené obrazovky z NVS paměti (výchozí: ALL)
-        if (savedScreen >= _SCREEN_ID_FIRST && savedScreen <= _SCREEN_ID_LAST) {
-            loadScreen((enum ScreensEnum)savedScreen);
-        }
+        // Vždy začneme na hlavní obrazovce (Main menu), aby bylo možné otestovat dotyk a přepínání
+        loadScreen(SCREEN_ID_MAIN);
 
         updateUiWidgets();
         lvgl_port_unlock();
     }
+
+    BoardSerial.println("[OpenFront] Setup dokoncen! System bezi a ceka na data...");
+#if ARDUINO_USB_CDC_ON_BOOT
+    Serial.println("[OpenFront] Setup dokoncen! System bezi a ceka na data...");
+#endif
 }
 
 void loop() {
@@ -277,11 +318,11 @@ void loop() {
         setBacklight(false);
     }
 
-    // === OPTIMALIZACE 2: Rate-limited aktualizace UI (max každých 200 ms) ===
-    if (uiUpdatePending && (millis() - lastUiUpdateMs >= UI_UPDATE_INTERVAL_MS)) {
-        updateUiWidgets();
-        lastUiUpdateMs = millis();
-        uiUpdatePending = false;
+    // Periodický heartbeat pro kontrolu, že loop() žije
+    static unsigned long lastHeartbeat = 0;
+    if (millis() - lastHeartbeat >= 3000) {
+        lastHeartbeat = millis();
+        BoardSerial.println("[OpenFront] Heartbeat: smycka loop() bezi v poradku.");
     }
 
     delay(5);
@@ -297,6 +338,7 @@ void processSerialLine(const String &line) {
     const char *type = doc["type"] | "";
 
     if (strcmp(type, "hello") == 0) {
+        BoardSerial.println("[OpenFront] Prichozi hello z PC!");
         JsonDocument ack;
         ack["v"] = 1;
         ack["type"] = "hello_ack";
@@ -325,12 +367,12 @@ void processSerialLine(const String &line) {
         telemetry.diskTotalGb = doc["disk_total_gb"] | 0;
         telemetry.netName = doc["net_name"] | "Network";
 
-        // Přečtení poslední obrazovky z NVS (jednorázový read na Core 1 je OK)
+        // Přečtení poslední obrazovky z NVS
         Preferences p;
-        p.begin("openfront", true);  // read-only → neblokuje Flash zápis
+        p.begin("openfront", true);  // read-only
         int savedScreen = p.getInt("last_scr", (int)SCREEN_ID_ALL);
         p.end();
-        if (savedScreen < _SCREEN_ID_FIRST || savedScreen > _SCREEN_ID_LAST) {
+        if (savedScreen < _SCREEN_ID_FIRST || savedScreen > _SCREEN_ID_LAST || savedScreen == (int)SCREEN_ID_CPU) {
             savedScreen = (int)SCREEN_ID_ALL;
         }
 
@@ -339,9 +381,13 @@ void processSerialLine(const String &line) {
             lvgl_port_unlock();
         }
 
-        updateUiWidgets();
+        uiUpdatePending = true;
     }
     else if (strcmp(type, "stat") == 0) {
+        static unsigned long statCount = 0;
+        if (++statCount % 10 == 1) {
+            BoardSerial.printf("[OpenFront] Data z PC prijata (stat #%lu): CPU=%d%%, GPU=%d%%\n", statCount, (int)doc["cpu"]["load"], (int)doc["gpu"]["load"]);
+        }
         lastStatTimeMs = millis();
 
         bool screenOn = doc["scr_on"] | true;
@@ -383,8 +429,25 @@ void processSerialLine(const String &line) {
         telemetry.diskUsedGb = doc["disk"]["used_gb"] | 0;
         telemetry.diskTemp = doc["disk"]["temp"] | 0;
 
-        telemetry.netDlKbps = doc["net"]["dl_kbps"] | 0;
-        telemetry.netUlKbps = doc["net"]["ul_kbps"] | 0;
+        telemetry.netDlSpeed = doc["net"]["dl_kbps"] | 0.0f;
+        telemetry.netUlSpeed = doc["net"]["ul_kbps"] | 0.0f;
+        float dlPeak = doc["net"]["dl_peak"] | 0.0f;
+        float ulPeak = doc["net"]["ul_peak"] | 0.0f;
+        if (dlPeak > telemetry.netDlPeak) telemetry.netDlPeak = dlPeak;
+        if (telemetry.netDlSpeed > telemetry.netDlPeak) telemetry.netDlPeak = telemetry.netDlSpeed;
+        if (ulPeak > telemetry.netUlPeak) telemetry.netUlPeak = ulPeak;
+        if (telemetry.netUlSpeed > telemetry.netUlPeak) telemetry.netUlPeak = telemetry.netUlSpeed;
+
+        if (doc.containsKey("agent")) {
+            JsonObject ag = doc["agent"];
+            telemetry.agent.active = ag["active"] | true;
+            telemetry.agent.name = ag["name"] | "Hermes Agent";
+            telemetry.agent.status = ag["status"] | "Waiting...";
+            telemetry.agent.tool = ag["tool"] | "-";
+            telemetry.agent.tokPerSec = ag["tok_s"] | 0.0f;
+            telemetry.agent.memUsageMb = ag["mem_mb"] | 0;
+            telemetry.agent.contextWin = ag["ctx"] | "-";
+        }
 
         // === OPTIMALIZACE 2: Pouze označíme, že je potřeba aktualizovat UI ===
         uiUpdatePending = true;
@@ -436,12 +499,16 @@ static void onMainBtnMatrixClick(lv_event_t *e) {
         lv_indev_wait_release(indev);
     }
 
+    BoardSerial.printf("[OpenFront] Prepnuti obrazovky na: %s (id=%d)\n", txt, (int)target);
     loadScreen(target);
+    updateUiWidgets();
     persist_screen_selection(target);
 }
 
+static lv_chart_series_t *ser_net_dl = nullptr;
+static lv_chart_series_t *ser_net_ul = nullptr;
+
 void updateUiWidgets() {
-    if (lvgl_port_lock(-1)) {
         char buf[64];
 
         // === OPTIMALIZACE 3: Zjistíme aktivní obrazovku a aktualizujeme jen relevantní widgety ===
@@ -451,23 +518,27 @@ void updateUiWidgets() {
         bool isGpu = (activeScreen == objects.gpu);
         bool isRamDisk = (activeScreen == objects.ram_and_disk);
         bool isNet = (activeScreen == objects.net);
+        bool isAgentStatus = (activeScreen == objects.agent_status);
         bool isWallpaper = (activeScreen == objects.wallpaper);
 
         // ==========================================
-        // 0. NÁZVY KOMPONENT (Specs) – jen na relevantních obrazovkách
+        // 0. NÁZVY KOMPONENT (Specs) – pouze na relevantních obrazovkách
         // ==========================================
-        if (isAll || isCpu) {
+        if (isAll) {
             setLabelText(objects.cpu_name_label_1, telemetry.cpuName.c_str());
+            setLabelText(objects.gpu_name_label_1, telemetry.gpuName.c_str());
+            setLabelText(objects.ram_name_label_1, telemetry.ramName.c_str());
+            setLabelText(objects.disk_name_label_1, telemetry.diskName.c_str());
+            setLabelText(objects.network_device_name_label_1, telemetry.netName.c_str());
+        }
+        if (isCpu) {
             setLabelText(objects.cpu_name_label, telemetry.cpuName.c_str());
         }
-        if (isAll || isGpu) {
-            setLabelText(objects.gpu_name_label_1, telemetry.gpuName.c_str());
+        if (isGpu) {
             setLabelText(objects.gpu_name_label, telemetry.gpuName.c_str());
         }
-        if (isAll || isRamDisk) {
-            setLabelText(objects.ram_name_label_1, telemetry.ramName.c_str());
+        if (isRamDisk) {
             setLabelText(objects.ram_name_label, telemetry.ramName.c_str());
-            setLabelText(objects.disk_name_label_1, telemetry.diskName.c_str());
             setLabelText(objects.disk_name_label, telemetry.diskName.c_str());
         }
         if (isNet) {
@@ -475,20 +546,25 @@ void updateUiWidgets() {
         }
 
         // ==========================================
-        // 1. CPU TELEMETRIE (Obrazovka All + samostatná CPU)
+        // 1. CPU TELEMETRIE
         // ==========================================
-        if (isAll || isCpu) {
+        if (isAll) {
             snprintf(buf, sizeof(buf), "%d RPM", telemetry.cpuFanRpm);
             setLabelText(objects.cpu_fan_text_1, buf);
-            setLabelText(objects.cpu_fan_text, buf);
-
             snprintf(buf, sizeof(buf), "%d °C", telemetry.cpuTemp);
             setLabelText(objects.cpu_temp_text_1, buf);
-            snprintf(buf, sizeof(buf), "%d", telemetry.cpuTemp);
-            setLabelText(objects.cpu_temp_text, buf);
-
             snprintf(buf, sizeof(buf), "%.2f GHz", telemetry.cpuFreq);
             setLabelText(objects.cpu_clock_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
+            setLabelText(objects.cpu_power_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.cpuLoad);
+            setLabelText(objects.cpu_usage_text_1, buf);
+        }
+        if (isCpu) {
+            snprintf(buf, sizeof(buf), "%d RPM", telemetry.cpuFanRpm);
+            setLabelText(objects.cpu_fan_text, buf);
+            snprintf(buf, sizeof(buf), "%d", telemetry.cpuTemp);
+            setLabelText(objects.cpu_temp_text, buf);
             snprintf(buf, sizeof(buf), "%.2f", telemetry.cpuFreq);
             setLabelText(objects.cpu_clock_text, buf);
 
@@ -496,44 +572,53 @@ void updateUiWidgets() {
                 int val = (int)roundf(telemetry.cpuFreq * 1000.0f);
                 if (val < 0) val = 0;
                 if (val > 10000) val = 10000;
-                setArcValue(objects.cpu_arc_clock, val);
+                setArcValue(objects.cpu_arc_clock, val, 25);
             }
             if (objects.cpu_arc_temp != nullptr) {
                 int t = telemetry.cpuTemp;
                 if (t < 0) t = 0;
                 if (t > 100) t = 100;
-                setArcValue(objects.cpu_arc_temp, t);
+                setArcValue(objects.cpu_arc_temp, t, 1);
             }
             if (objects.cpu_arc_normal_usage != nullptr) {
                 int normalUsage = telemetry.cpuLoad > 90 ? 90 : telemetry.cpuLoad;
                 if (normalUsage < 0) normalUsage = 0;
-                setArcValue(objects.cpu_arc_normal_usage, normalUsage);
+                setArcValue(objects.cpu_arc_normal_usage, normalUsage, 1);
             }
             if (objects.cpu_arc_warning_usage != nullptr) {
                 int warnUsage = telemetry.cpuLoad > 90 ? telemetry.cpuLoad : 90;
                 if (warnUsage > 100) warnUsage = 100;
-                setArcValue(objects.cpu_arc_warning_usage, warnUsage);
+                setArcValue(objects.cpu_arc_warning_usage, warnUsage, 1);
             }
 
             snprintf(buf, sizeof(buf), "%d W", telemetry.cpuPowerW);
-            setLabelText(objects.cpu_power_text_1, buf);
             setLabelText(objects.cpu_power_text, buf);
-
             snprintf(buf, sizeof(buf), "%d %%", telemetry.cpuLoad);
-            setLabelText(objects.cpu_usage_text_1, buf);
             setLabelText(objects.cpu_usage_text, buf);
         }
 
         // ==========================================
-        // 2. GPU TELEMETRIE (Obrazovka All + samostatná GPU)
+        // 2. GPU TELEMETRIE
         // ==========================================
-        if (isAll || isGpu) {
+        if (isAll) {
             snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuFanPct);
             setLabelText(objects.gpu_fan_text_1, buf);
-            setLabelText(objects.gpu_fan_text, buf);
-
             snprintf(buf, sizeof(buf), "%d °C", telemetry.gpuTemp);
             setLabelText(objects.gpu_temp_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d MHz", telemetry.gpuFreq);
+            setLabelText(objects.gpu_clock_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d W", telemetry.gpuPowerW);
+            setLabelText(objects.gpu_power_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuLoad);
+            setLabelText(objects.gpu_usage_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramTotalMb);
+            setLabelText(objects.gpu_vram_text_1, buf);
+            snprintf(buf, sizeof(buf), "%d MB", telemetry.vramUsedMb);
+            setLabelText(objects.gpu_vram_usage_text_1, buf);
+        }
+        if (isGpu) {
+            snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuFanPct);
+            setLabelText(objects.gpu_fan_text, buf);
             snprintf(buf, sizeof(buf), "%d", telemetry.gpuTemp);
             setLabelText(objects.gpu_temp_text, buf);
 
@@ -541,11 +626,9 @@ void updateUiWidgets() {
                 int t = telemetry.gpuTemp;
                 if (t < 0) t = 0;
                 if (t > 100) t = 100;
-                setArcValue(objects.gpu_arc_temp, t);
+                setArcValue(objects.gpu_arc_temp, t, 1);
             }
 
-            snprintf(buf, sizeof(buf), "%d MHz", telemetry.gpuFreq);
-            setLabelText(objects.gpu_clock_text_1, buf);
             float gpuFreqGhz = telemetry.gpuFreq > 50 ? (telemetry.gpuFreq / 1000.0f) : (float)telemetry.gpuFreq;
             snprintf(buf, sizeof(buf), "%.2f", gpuFreqGhz);
             setLabelText(objects.gpu_clock_text, buf);
@@ -554,76 +637,108 @@ void updateUiWidgets() {
                 int val = (int)roundf(gpuFreqGhz * 1000.0f);
                 if (val < 0) val = 0;
                 if (val > 10000) val = 10000;
-                setArcValue(objects.gpu_arc_clock, val);
+                setArcValue(objects.gpu_arc_clock, val, 25);
             }
 
             snprintf(buf, sizeof(buf), "%d W", telemetry.gpuPowerW);
-            setLabelText(objects.gpu_power_text_1, buf);
             setLabelText(objects.gpu_power_text, buf);
-
             snprintf(buf, sizeof(buf), "%d %%", telemetry.gpuLoad);
-            setLabelText(objects.gpu_usage_text_1, buf);
             setLabelText(objects.gpu_usage_text_o, buf);
 
             if (objects.gpu_arc_normal_usage != nullptr) {
                 int normalUsage = telemetry.gpuLoad > 90 ? 90 : telemetry.gpuLoad;
                 if (normalUsage < 0) normalUsage = 0;
-                setArcValue(objects.gpu_arc_normal_usage, normalUsage);
+                setArcValue(objects.gpu_arc_normal_usage, normalUsage, 1);
             }
             if (objects.gpu_arc_warning_usage != nullptr) {
                 int warnUsage = telemetry.gpuLoad > 90 ? telemetry.gpuLoad : 90;
                 if (warnUsage > 100) warnUsage = 100;
-                setArcValue(objects.gpu_arc_warning_usage, warnUsage);
+                setArcValue(objects.gpu_arc_warning_usage, warnUsage, 1);
             }
 
             snprintf(buf, sizeof(buf), "%d MB", telemetry.vramTotalMb);
-            setLabelText(objects.gpu_vram_text_1, buf);
             setLabelText(objects.gpu_vram_text, buf);
-
             snprintf(buf, sizeof(buf), "%d MB", telemetry.vramUsedMb);
-            setLabelText(objects.gpu_vram_usage_text_1, buf);
             setLabelText(objects.gpu_vram_usage_text, buf);
         }
 
         // ==========================================
-        // 3. RAM TELEMETRIE (Obrazovka All + RAM & Disk)
+        // 3. RAM TELEMETRIE
         // ==========================================
-        if (isAll || isRamDisk) {
+        if (isAll) {
             snprintf(buf, sizeof(buf), "%d GB", telemetry.ramTotalGb);
             setLabelText(objects.ram_capacity_text_1, buf);
-            setLabelText(objects.ram_capacity_text, buf);
-
             snprintf(buf, sizeof(buf), "%d MB (%d %%)", telemetry.ramUsedMb, telemetry.ramLoad);
             setLabelText(objects.ram_used_text_1, buf);
+        }
+        if (isRamDisk) {
+            snprintf(buf, sizeof(buf), "%d GB", telemetry.ramTotalGb);
+            setLabelText(objects.ram_capacity_text, buf);
+            snprintf(buf, sizeof(buf), "%d MB (%d %%)", telemetry.ramUsedMb, telemetry.ramLoad);
             setLabelText(objects.ram_used_text, buf);
+            if (objects.bar_ram_usage_indicator != nullptr) {
+                lv_bar_set_value(objects.bar_ram_usage_indicator, telemetry.ramLoad, LV_ANIM_OFF);
+            }
         }
 
         // ==========================================
-        // 4. DISK / ROM (Obrazovka All + RAM & Disk)
+        // 4. DISK / ROM
         // ==========================================
-        if (isAll || isRamDisk) {
+        if (isAll) {
             snprintf(buf, sizeof(buf), "%d GB", telemetry.diskTotalGb);
             setLabelText(objects.disk_capacity_text_1, buf);
-            setLabelText(objects.disk_capacity_text, buf);
-
             snprintf(buf, sizeof(buf), "%d GB (%d %%)", telemetry.diskUsedGb, telemetry.diskUsedPct);
             setLabelText(objects.disk_used_text_1, buf);
-            setLabelText(objects.disk_used_text, buf);
-
             snprintf(buf, sizeof(buf), "%d °C", telemetry.diskTemp);
             setLabelText(objects.disk_temp_text_1, buf);
+        }
+        if (isRamDisk) {
+            snprintf(buf, sizeof(buf), "%d GB", telemetry.diskTotalGb);
+            setLabelText(objects.disk_capacity_text, buf);
+            snprintf(buf, sizeof(buf), "%d GB (%d %%)", telemetry.diskUsedGb, telemetry.diskUsedPct);
+            setLabelText(objects.disk_used_text, buf);
+            snprintf(buf, sizeof(buf), "%d °C", telemetry.diskTemp);
             setLabelText(objects.disk_temp_text, buf);
+            if (objects.bar_disk_usage_indicator != nullptr) {
+                lv_bar_set_value(objects.bar_disk_usage_indicator, telemetry.diskUsedPct, LV_ANIM_OFF);
+            }
         }
 
         // ==========================================
-        // 5. NET (Obrazovka Net)
+        // 5. NET (Obrazovka All + Obrazovka Net)
         // ==========================================
+        if (isAll) {
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netDlSpeed);
+            setLabelText(objects.net_download_text_1, buf);
+
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netUlSpeed);
+            setLabelText(objects.net_upload_text_1, buf);
+        }
         if (isNet) {
-            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netDlKbps);
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netDlSpeed);
             setLabelText(objects.net_download_text, buf);
 
-            snprintf(buf, sizeof(buf), "%d KB/s", telemetry.netUlKbps);
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netUlSpeed);
             setLabelText(objects.net_upload_text, buf);
+
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netDlPeak);
+            setLabelText(objects.net_download_peak_text, buf);
+
+            snprintf(buf, sizeof(buf), "%.1f Mbps", telemetry.netUlPeak);
+            setLabelText(objects.net_upload_peak_text, buf);
+
+            if (objects.net_traffic_chart != nullptr) {
+                if (ser_net_dl == nullptr) {
+                    ser_net_dl = lv_chart_add_series(objects.net_traffic_chart, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+                    ser_net_ul = lv_chart_add_series(objects.net_traffic_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+                    lv_chart_set_point_count(objects.net_traffic_chart, 20);
+                }
+                int maxPeak = (int)ceilf(max(telemetry.netDlPeak, telemetry.netUlPeak));
+                if (maxPeak < 10) maxPeak = 10;
+                lv_chart_set_range(objects.net_traffic_chart, LV_CHART_AXIS_PRIMARY_Y, 0, maxPeak);
+                lv_chart_set_next_value(objects.net_traffic_chart, ser_net_dl, (lv_coord_t)roundf(telemetry.netDlSpeed));
+                lv_chart_set_next_value(objects.net_traffic_chart, ser_net_ul, (lv_coord_t)roundf(telemetry.netUlSpeed));
+            }
         }
 
         // ==========================================
@@ -635,6 +750,32 @@ void updateUiWidgets() {
             }
         }
 
-        lvgl_port_unlock();
-    }
+        // ==========================================
+        // 7. AGENT STATUS (Obrazovka Agent status)
+        // ==========================================
+        if (isAgentStatus) {
+            setLabelText(objects.agent_llm_name_text, telemetry.agent.name.c_str());
+            setLabelText(objects.llm_status_text, telemetry.agent.status.c_str());
+            setLabelText(objects.llm_tool_text, telemetry.agent.tool.c_str());
+
+            if (telemetry.agent.tokPerSec > 0.0f) {
+                snprintf(buf, sizeof(buf), "%.1f tok/s", telemetry.agent.tokPerSec);
+                setLabelText(objects.llm_tok_per_sec_text, buf);
+            } else {
+                setLabelText(objects.llm_tok_per_sec_text, "-");
+            }
+
+            if (telemetry.agent.memUsageMb > 0) {
+                if (telemetry.agent.memUsageMb >= 1024) {
+                    snprintf(buf, sizeof(buf), "%.1f GB", telemetry.agent.memUsageMb / 1024.0f);
+                } else {
+                    snprintf(buf, sizeof(buf), "%d MB", telemetry.agent.memUsageMb);
+                }
+                setLabelText(objects.llm_mem_usage_text, buf);
+            } else {
+                setLabelText(objects.llm_mem_usage_text, "-");
+            }
+
+            setLabelText(objects.llm_context_win_text, telemetry.agent.contextWin.c_str());
+        }
 }

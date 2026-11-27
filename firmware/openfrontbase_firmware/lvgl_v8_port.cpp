@@ -649,6 +649,12 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
         data->point.x = point.x;
         data->point.y = point.y;
         data->state = LV_INDEV_STATE_PRESSED;
+
+        static unsigned long lastTouchPrint = 0;
+        if (millis() - lastTouchPrint > 200) {
+            lastTouchPrint = millis();
+            Serial.printf("[Touch] Detekovan dotyk na displeji: X=%d, Y=%d (readPoints res=%d)\n", point.x, point.y, read_touch_result);
+        }
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
     }
@@ -714,7 +720,10 @@ static void lvgl_port_task(void *arg)
     uint32_t task_delay_ms = LVGL_PORT_TASK_MAX_DELAY_MS;
     while (1) {
         if (lvgl_port_lock(-1)) {
+            static bool in_handler = false;
+            in_handler = true;
             task_delay_ms = lv_timer_handler();
+            in_handler = false;
             lvgl_port_unlock();
         }
         if (task_delay_ms > LVGL_PORT_TASK_MAX_DELAY_MS) {
@@ -748,6 +757,8 @@ bool lvgl_port_init(LCD *lcd, Touch *tp)
     ESP_UTILS_LOGI(
         "Avoid tearing is enabled, mode: %d, rotation: %d", LVGL_PORT_AVOID_TEARING_MODE, LVGL_PORT_ROTATION_DEGREE
     );
+#else
+    ESP_UTILS_LOGI("Avoid tearing is disabled (Mode 0: partial refresh)");
 #endif
 
     lv_disp_t *disp = nullptr;

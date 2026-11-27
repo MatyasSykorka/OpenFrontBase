@@ -20,6 +20,8 @@ public class LinuxHardwareReader : IHardwareReader {
     private long _prevNetRxBytes;
     private long _prevNetTxBytes;
     private DateTime _prevNetTime = DateTime.UtcNow;
+    private double _peakDlMbps = 0.0;
+    private double _peakUlMbps = 0.0;
 
     private readonly string? _cpuTempFile;
     private string? _cpuFanFile;
@@ -69,6 +71,7 @@ public class LinuxHardwareReader : IHardwareReader {
             Ram = ReadRamStats(),
             Disk = ReadSystemDiskStats(),
             Net = ReadNetworkSpeed(),
+            Agent = HermesStatusReader.ReadStatus(),
             ScreenOn = true
         };
     }
@@ -780,6 +783,7 @@ public class LinuxHardwareReader : IHardwareReader {
                 int temp = 0;
                 int powerWatts = 0;
                 int fanPct = 0;
+                int fanRpm = 0;
 
                 string hwmonDir = Path.Combine(cardDir, "device", "hwmon");
                 if (Directory.Exists(hwmonDir)) {
@@ -795,6 +799,11 @@ public class LinuxHardwareReader : IHardwareReader {
                         if (File.Exists(pwmFile) && int.TryParse(File.ReadAllText(pwmFile).Trim(), out int pwm)) {
                             fanPct = (int)Math.Round(pwm / 255.0 * 100.0);
                         }
+
+                        string fanInputFile = Path.Combine(firstHwmon, "fan1_input");
+                        if (File.Exists(fanInputFile) && int.TryParse(File.ReadAllText(fanInputFile).Trim(), out int rpm)) {
+                            fanRpm = rpm;
+                        }
                     }
                 }
 
@@ -802,6 +811,7 @@ public class LinuxHardwareReader : IHardwareReader {
                     Load = load,
                     Temp = temp,
                     FanPercent = fanPct,
+                    FanRpm = fanRpm,
                     PowerWatts = powerWatts,
                     VramUsedMb = vramUsedMb,
                     VramTotalMb = vramTotalMb
@@ -835,19 +845,28 @@ public class LinuxHardwareReader : IHardwareReader {
             var now = DateTime.UtcNow;
             double seconds = (now - _prevNetTime).TotalSeconds;
 
-            int dlKbps = 0;
-            int ulKbps = 0;
+            double dlMbps = 0.0;
+            double ulMbps = 0.0;
 
             if (seconds > 0 && _prevNetRxBytes > 0) {
-                dlKbps = (int)Math.Max(0, (rxTotal - _prevNetRxBytes) / 1024.0 / seconds);
-                ulKbps = (int)Math.Max(0, (txTotal - _prevNetTxBytes) / 1024.0 / seconds);
+                // (bytes * 8) / (1024 * 1024 * seconds) = megabits per second
+                dlMbps = Math.Round(Math.Max(0.0, (rxTotal - _prevNetRxBytes) * 8.0 / 1024.0 / 1024.0 / seconds), 1);
+                ulMbps = Math.Round(Math.Max(0.0, (txTotal - _prevNetTxBytes) * 8.0 / 1024.0 / 1024.0 / seconds), 1);
             }
+
+            if (dlMbps > _peakDlMbps) _peakDlMbps = dlMbps;
+            if (ulMbps > _peakUlMbps) _peakUlMbps = ulMbps;
 
             _prevNetRxBytes = rxTotal;
             _prevNetTxBytes = txTotal;
             _prevNetTime = now;
 
-            return new NetStats { DownloadKbps = dlKbps, UploadKbps = ulKbps };
+            return new NetStats {
+                DownloadKbps = dlMbps,
+                UploadKbps = ulMbps,
+                DownloadPeak = _peakDlMbps,
+                UploadPeak = _peakUlMbps
+            };
         }
         catch {
             return new NetStats();

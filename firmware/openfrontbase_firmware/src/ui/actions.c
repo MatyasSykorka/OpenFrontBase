@@ -1,17 +1,22 @@
 #include "actions.h"
 #include "screens.h"
 #include "ui.h"
+#include <stdio.h>
 
 // Funkce definovaná ve firmwaru pro trvalé uložení do paměti NVS ESP32
 extern void persist_screen_selection(enum ScreensEnum screenId);
 
 static inline void navigate_to(enum ScreensEnum screenId) {
+    printf("[Action] navigate_to start pro screenId: %d\n", (int)screenId);
     lv_indev_t *indev = lv_indev_get_act();
     if (indev != NULL) {
         lv_indev_wait_release(indev);
     }
+    printf("[Action] loadScreen(%d)...\n", (int)screenId);
     loadScreen(screenId);
+    printf("[Action] persist_screen_selection(%d)...\n", (int)screenId);
     persist_screen_selection(screenId);
+    printf("[Action] navigate_to dokonceno!\n");
 }
 
 void action_to_all(lv_event_t *e) {
@@ -60,6 +65,7 @@ void action_net_page(lv_event_t *e) {
 }
 
 void action_main_page(lv_event_t *e) {
+    printf("[Action] action_main_page kliknuto!\n");
     LV_UNUSED(e);
     navigate_to(SCREEN_ID_MAIN);
 }
