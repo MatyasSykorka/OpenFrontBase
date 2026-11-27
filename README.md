@@ -26,6 +26,7 @@
 - `ui-design/` – Projekt pro EEZ Studio / EEZ Studio project
 - `STL/` – 3D modely šasi (2x 5.25" bay) a schémata / 3D enclosure models and schematics
 - `docs/` – Dokumentace a specifikace protokolu / Documentation and protocol spec
+- `hermes_plugin` - Plugin pro Hermes Agent / Hermes Agent plugin
 
 ## Licence / License
 - **OpenFrontBase:** [MIT License](LICENSE)
