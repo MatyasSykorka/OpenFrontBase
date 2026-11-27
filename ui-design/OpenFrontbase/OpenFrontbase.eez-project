@@ -8599,7 +8599,7 @@
             {
               "objID": "8d26a486-da35-43ec-a4bf-2bbd77e1c8f6",
               "type": "LVGLLabelWidget",
-              "left": 325,
+              "left": 0,
               "top": 15,
               "width": 161,
               "height": 33,
@@ -8634,7 +8634,8 @@
                 "definition": {
                   "MAIN": {
                     "DEFAULT": {
-                      "text_font": "MONTSERRAT_30"
+                      "text_font": "MONTSERRAT_30",
+                      "align": "TOP_MID"
                     }
                   }
                 }

@@ -441,12 +441,46 @@ void processSerialLine(const String &line) {
         if (doc.containsKey("agent")) {
             JsonObject ag = doc["agent"];
             telemetry.agent.active = ag["active"] | true;
-            telemetry.agent.name = ag["name"] | "Hermes Agent";
-            telemetry.agent.status = ag["status"] | "Waiting...";
-            telemetry.agent.tool = ag["tool"] | "-";
-            telemetry.agent.tokPerSec = ag["tok_s"] | 0.0f;
-            telemetry.agent.memUsageMb = ag["mem_mb"] | 0;
-            telemetry.agent.contextWin = ag["ctx"] | "-";
+            if (ag.containsKey("name") && ag["name"].is<const char*>()) {
+                const char* n = ag["name"].as<const char*>();
+                if (n != nullptr && strlen(n) > 0 && strcmp(n, "-") != 0) {
+                    telemetry.agent.name = n;
+                }
+            }
+            if (ag.containsKey("status") && ag["status"].is<const char*>()) {
+                const char* s = ag["status"].as<const char*>();
+                if (s != nullptr && strlen(s) > 0) {
+                    telemetry.agent.status = s;
+                }
+            }
+            if (ag.containsKey("tool") && ag["tool"].is<const char*>()) {
+                const char* t = ag["tool"].as<const char*>();
+                if (t != nullptr && strlen(t) > 0 && strcmp(t, "-") != 0) {
+                    telemetry.agent.tool = t;
+                }
+            }
+            if (ag.containsKey("tok_s")) {
+                float tps = ag["tok_s"].as<float>();
+                if (tps > 0.05f) {
+                    telemetry.agent.tokPerSec = tps;
+                }
+            }
+            if (ag.containsKey("mem_mb")) {
+                int mm = ag["mem_mb"].as<int>();
+                if (mm > 0) {
+                    if (telemetry.agent.memUsageMb >= 1024 && mm < 1024) {
+                        // Ignorujeme dočasný propad na samotný Python proces (~270 MB)
+                    } else {
+                        telemetry.agent.memUsageMb = mm;
+                    }
+                }
+            }
+            if (ag.containsKey("ctx") && ag["ctx"].is<const char*>()) {
+                const char* c = ag["ctx"].as<const char*>();
+                if (c != nullptr && strlen(c) > 0 && strcmp(c, "-") != 0) {
+                    telemetry.agent.contextWin = c;
+                }
+            }
         }
 
         // === OPTIMALIZACE 2: Pouze označíme, že je potřeba aktualizovat UI ===
@@ -754,11 +788,11 @@ void updateUiWidgets() {
         // 7. AGENT STATUS (Obrazovka Agent status)
         // ==========================================
         if (isAgentStatus) {
-            setLabelText(objects.agent_llm_name_text, telemetry.agent.name.c_str());
-            setLabelText(objects.llm_status_text, telemetry.agent.status.c_str());
-            setLabelText(objects.llm_tool_text, telemetry.agent.tool.c_str());
+            setLabelText(objects.agent_llm_name_text, telemetry.agent.name.length() > 0 ? telemetry.agent.name.c_str() : "-");
+            setLabelText(objects.llm_status_text, telemetry.agent.status.length() > 0 ? telemetry.agent.status.c_str() : "-");
+            setLabelText(objects.llm_tool_text, telemetry.agent.tool.length() > 0 ? telemetry.agent.tool.c_str() : "-");
 
-            if (telemetry.agent.tokPerSec > 0.0f) {
+            if (telemetry.agent.tokPerSec > 0.05f) {
                 snprintf(buf, sizeof(buf), "%.1f tok/s", telemetry.agent.tokPerSec);
                 setLabelText(objects.llm_tok_per_sec_text, buf);
             } else {
@@ -767,7 +801,7 @@ void updateUiWidgets() {
 
             if (telemetry.agent.memUsageMb > 0) {
                 if (telemetry.agent.memUsageMb >= 1024) {
-                    snprintf(buf, sizeof(buf), "%.1f GB", telemetry.agent.memUsageMb / 1024.0f);
+                    snprintf(buf, sizeof(buf), "%.2f GB", telemetry.agent.memUsageMb / 1024.0f);
                 } else {
                     snprintf(buf, sizeof(buf), "%d MB", telemetry.agent.memUsageMb);
                 }
@@ -776,6 +810,6 @@ void updateUiWidgets() {
                 setLabelText(objects.llm_mem_usage_text, "-");
             }
 
-            setLabelText(objects.llm_context_win_text, telemetry.agent.contextWin.c_str());
+            setLabelText(objects.llm_context_win_text, telemetry.agent.contextWin.length() > 0 ? telemetry.agent.contextWin.c_str() : "-");
         }
 }

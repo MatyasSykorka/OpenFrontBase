@@ -1767,9 +1767,10 @@ void create_screen_agent_status() {
             // agent_llm_name_text
             lv_obj_t *obj = lv_label_create(parent_obj);
             objects.agent_llm_name_text = obj;
-            lv_obj_set_pos(obj, 325, 15);
+            lv_obj_set_pos(obj, 0, 15);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_set_style_text_font(obj, &lv_font_montserrat_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_align(obj, LV_ALIGN_TOP_MID, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_label_set_text_static(obj, "LLM name");
         }
         {

@@ -1,6 +1,6 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/8",
+    "selectedUserPageObject": "[OpenFrontbase.eez-project]:/userPages/6",
     "selectedFontObject": "[OpenFrontbase.eez-project]:/fonts/0",
     "subnavigationSelectedItems": {}
   },
@@ -193,10 +193,10 @@
                 {
                   "type": "tab",
                   "id": "#8a330bdb-4c82-4d6d-80d0-beda38aca778",
-                  "name": "Settings",
+                  "name": "AgentStatus",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/8",
+                    "objectPath": "[OpenFrontbase.eez-project]:/userPages/6",
                     "permanent": false
                   },
                   "icon": "svg:page"
@@ -1084,10 +1084,10 @@
       },
       "transform": {
         "translate": {
-          "x": -291.4075266934231,
-          "y": -470.6300520300884
+          "x": -716.1816712546881,
+          "y": -481.8159918660497
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1104,16 +1104,18 @@
           "1": {},
           "2": {},
           "3": {},
-          "4": {},
+          "4": {
+            "1": {}
+          },
           "5": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -300.7973214285714,
-          "y": -415.23464285714283
+          "x": -691.7973214285714,
+          "y": -454.23464285714283
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1148,7 +1150,9 @@
           "19": {},
           "20": {},
           "21": {},
-          "22": {},
+          "22": {
+            "$selected": true
+          },
           "23": {},
           "24": {},
           "25": {}
@@ -1156,10 +1160,10 @@
       },
       "transform": {
         "translate": {
-          "x": -279.01666666666665,
-          "y": -431.25297619047626
+          "x": -693.0166666666667,
+          "y": -482.25297619047626
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1174,6 +1178,7 @@
         "0": {
           "0": {},
           "2": {},
+          "5": {},
           "8": {},
           "9": {},
           "10": {},
@@ -1188,10 +1193,10 @@
       },
       "transform": {
         "translate": {
-          "x": -284.9916666666667,
-          "y": -404.9727272727272
+          "x": -668.9916666666667,
+          "y": -336.9727272727272
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1210,16 +1215,19 @@
           "4": {},
           "8": {},
           "9": {},
+          "11": {
+            "$selected": true
+          },
           "16": {},
           "17": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -272.3591111111112,
-          "y": -423.1426666666667
+          "x": -699.3591111111111,
+          "y": -468.1426666666667
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1234,16 +1242,27 @@
         "0": {
           "0": {},
           "1": {},
+          "2": {},
+          "3": {},
+          "4": {},
+          "5": {},
+          "6": {},
+          "7": {},
+          "8": {},
+          "9": {
+            "$selected": true
+          },
+          "10": {},
           "11": {},
           "12": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -270.33333333333337,
-          "y": -407.04166666666674
+          "x": -704.3333333333334,
+          "y": -469.04166666666674
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1256,15 +1275,17 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "0": {}
+          "0": {},
+          "7": {},
+          "13": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -276.8399999999999,
-          "y": -367
+          "x": -725.8399999999999,
+          "y": -493
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1277,18 +1298,19 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "1": {
+          "0": {
             "$selected": true
           },
+          "1": {},
           "2": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -268.85,
-          "y": -394.75
+          "x": -677.5242424242424,
+          "y": -485.8765151515152
         },
-        "scale": 0.67
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1301,15 +1323,17 @@
       "selectionFront": {},
       "selectionBack": {
         "0": {
-          "0": {}
+          "1": {},
+          "2": {},
+          "10": {}
         }
       },
       "transform": {
         "translate": {
-          "x": -414.4993781094528,
-          "y": -304.37428926794615
+          "x": -662.4993781094528,
+          "y": -445.37428926794615
         },
-        "scale": 1.1
+        "scale": 1.75
       },
       "timeline": {
         "isEditorActive": false,
@@ -1368,7 +1392,7 @@
   ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
-  "flowZoom": 1.1,
+  "flowZoom": 1.75,
   "implementationLanguage": "C",
   "openDialogDefaultPath": "/home/maty/Stažené/roboto/Roboto-Medium.ttf"
 }
